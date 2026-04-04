@@ -1,0 +1,5 @@
+{
+  "name": "PriorityPing",
+  "description": "A smart academic notification triage tool for students using logistic regression to classify urgency.",
+  "requestFramePermissions": []
+}
