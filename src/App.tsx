@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, AlertCircle, CheckCircle, Clock, Trash2, Plus, Send } from 'lucide-react';
+import { Bell, CheckCircle, Clock, Trash2, Plus, Send } from 'lucide-react';
 
 // Types
 interface Notification {
   notification_id?: number;
   title: string;
   notification_type: string;
+  has_deadline?: number;
   days_until_deadline: number;
   is_graded: number;
   estimated_time_hours: number;
@@ -20,13 +21,29 @@ interface Notification {
   reasons?: string[];
 }
 
-const API_URL = 'http://localhost:5000';
+const API_URL = 'http://127.0.0.1:5000';
+
+const NOTIFICATION_TYPES_WITH_DEADLINE = new Set(['assignment_due', 'quiz_due']);
+
+function typeHasDeadline(notificationType: string): boolean {
+  return NOTIFICATION_TYPES_WITH_DEADLINE.has(notificationType);
+}
+
+function notificationSubtitle(notif: Notification): string {
+  const typeLabel = notif.notification_type.replace(/_/g, ' ');
+  if (!typeHasDeadline(notif.notification_type)) {
+    return typeLabel;
+  }
+  const d = notif.days_until_deadline;
+  return `${typeLabel} · Due in ${d} day${d === 1 ? '' : 's'}`;
+}
 
 const DEMO_NOTIFICATIONS: Notification[] = [
   {
     notification_id: 1,
     title: "Homework 4 due tonight",
     notification_type: "assignment_due",
+    has_deadline: 1,
     days_until_deadline: 0,
     is_graded: 1,
     estimated_time_hours: 3.5,
@@ -39,6 +56,7 @@ const DEMO_NOTIFICATIONS: Notification[] = [
     notification_id: 2,
     title: "Important: Quiz 2 due tonight",
     notification_type: "quiz_due",
+    has_deadline: 1,
     days_until_deadline: 0,
     is_graded: 1,
     estimated_time_hours: 1.0,
@@ -51,7 +69,8 @@ const DEMO_NOTIFICATIONS: Notification[] = [
     notification_id: 3,
     title: "Updated syllabus posted",
     notification_type: "announcement",
-    days_until_deadline: 7,
+    has_deadline: 0,
+    days_until_deadline: 0,
     is_graded: 0,
     estimated_time_hours: 0.2,
     requires_submission: 0,
@@ -63,6 +82,7 @@ const DEMO_NOTIFICATIONS: Notification[] = [
     notification_id: 4,
     title: "Your grade for Homework 3 has been posted",
     notification_type: "grade_posted",
+    has_deadline: 0,
     days_until_deadline: 0,
     is_graded: 1,
     estimated_time_hours: 0.1,
@@ -75,7 +95,8 @@ const DEMO_NOTIFICATIONS: Notification[] = [
     notification_id: 5,
     title: "Study session this weekend",
     notification_type: "event",
-    days_until_deadline: 2,
+    has_deadline: 0,
+    days_until_deadline: 0,
     is_graded: 0,
     estimated_time_hours: 2.0,
     requires_submission: 0,
@@ -87,6 +108,7 @@ const DEMO_NOTIFICATIONS: Notification[] = [
     notification_id: 6,
     title: "Reminder: Lab 3 due in 3 days",
     notification_type: "assignment_due",
+    has_deadline: 1,
     days_until_deadline: 3,
     is_graded: 1,
     estimated_time_hours: 4.0,
@@ -99,6 +121,7 @@ const DEMO_NOTIFICATIONS: Notification[] = [
     notification_id: 7,
     title: "Quiz 3 opens tomorrow",
     notification_type: "quiz_due",
+    has_deadline: 1,
     days_until_deadline: 1,
     is_graded: 1,
     estimated_time_hours: 1.0,
@@ -128,6 +151,7 @@ export default function App() {
   const [formData, setFormData] = useState<Notification>({
     title: '',
     notification_type: 'assignment_due',
+    has_deadline: 1,
     days_until_deadline: 1,
     is_graded: 1,
     estimated_time_hours: 1.0,
@@ -149,9 +173,15 @@ export default function App() {
     try {
       const response = await axios.post(`${API_URL}/predict_batch`, feed);
       setFeed(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error prioritizing feed:", error);
-      alert("Make sure the Flask backend is running on http://localhost:5000");
+      if (error.response) {
+        alert(`Backend Error: ${error.response.data.error || 'Unknown server error'}`);
+      } else if (error.request) {
+        alert("Cannot reach backend. 1) Ensure 'python3 app.py' is running. 2) Open the app via http://localhost:3000 (not the AI Studio preview) to avoid Mixed Content blocks.");
+      } else {
+        alert("An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -160,13 +190,15 @@ export default function App() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Programmatic features from title
     const titleLower = formData.title.toLowerCase();
     const urgentKeywords = ["due", "tonight", "urgent", "reminder", "missing", "overdue", "important"];
     const timePhrases = ["tonight", "today", "by midnight", "this week", "in 1 hour"];
     
+    const hasDl = typeHasDeadline(formData.notification_type);
     const updatedFormData = {
       ...formData,
+      has_deadline: hasDl ? 1 : 0,
+      days_until_deadline: hasDl ? formData.days_until_deadline : 0,
       title_has_urgent_keyword: urgentKeywords.some(kw => titleLower.includes(kw)) ? 1 : 0,
       has_time_reference: timePhrases.some(tp => titleLower.includes(tp)) ? 1 : 0
     };
@@ -178,6 +210,7 @@ export default function App() {
       setFormData({
         title: '',
         notification_type: 'assignment_due',
+        has_deadline: 1,
         days_until_deadline: 1,
         is_graded: 1,
         estimated_time_hours: 1.0,
@@ -186,9 +219,13 @@ export default function App() {
         title_has_urgent_keyword: 0,
         has_time_reference: 0
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error predicting notification:", error);
-      alert("Make sure the Flask backend is running on http://localhost:5000");
+      if (error.response) {
+        alert(`Backend Error: ${error.response.data.error || 'Unknown server error'}`);
+      } else {
+        alert("Cannot reach backend. Ensure 'python3 app.py' is running on port 5000.");
+      }
     }
   };
 
@@ -238,7 +275,7 @@ export default function App() {
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">{notif.title}</h3>
             <p className="text-sm text-gray-600 mb-3 capitalize">
-              {notif.notification_type.replace('_', ' ')} • Due in {notif.days_until_deadline} days
+              {notificationSubtitle(notif)}
             </p>
             
             {notif.reasons && notif.reasons.length > 0 && (
@@ -344,7 +381,16 @@ export default function App() {
                     <label className="block text-sm font-bold text-gray-700 mb-1">Type</label>
                     <select
                       value={formData.notification_type}
-                      onChange={(e) => setFormData({ ...formData, notification_type: e.target.value })}
+                      onChange={(e) => {
+                        const t = e.target.value;
+                        const dl = typeHasDeadline(t);
+                        setFormData({
+                          ...formData,
+                          notification_type: t,
+                          has_deadline: dl ? 1 : 0,
+                          days_until_deadline: dl ? formData.days_until_deadline : 0
+                        });
+                      }}
                       className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
                       <option value="assignment_due">Assignment Due</option>
@@ -356,14 +402,22 @@ export default function App() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Days Until Due</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="14"
-                      value={formData.days_until_deadline}
-                      onChange={(e) => setFormData({ ...formData, days_until_deadline: parseInt(e.target.value) })}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
+                    {typeHasDeadline(formData.notification_type) ? (
+                      <input
+                        type="number"
+                        min="0"
+                        max="14"
+                        value={formData.days_until_deadline}
+                        onChange={(e) =>
+                          setFormData({ ...formData, days_until_deadline: parseInt(e.target.value, 10) || 0 })
+                        }
+                        className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    ) : (
+                      <div className="w-full px-4 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-sm text-gray-500">
+                        Not applicable for this type
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -438,4 +492,3 @@ export default function App() {
     </div>
   );
 }
-

@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
 import pandas as pd
-import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -14,11 +13,29 @@ except:
     model = None
     print("Model not found. Please run train_model.py first.")
 
+def _has_deadline(row):
+    if "has_deadline" in row and row["has_deadline"] is not None:
+        try:
+            return int(row["has_deadline"]) == 1
+        except (TypeError, ValueError):
+            pass
+    t = row.get("notification_type")
+    return t in ("assignment_due", "quiz_due")
+
+
+def normalize_row_for_model(row):
+    """Ensure training features are present; infer has_deadline from type if omitted."""
+    r = dict(row)
+    if r.get("has_deadline") is None:
+        r["has_deadline"] = int(r.get("notification_type") in ("assignment_due", "quiz_due"))
+    return r
+
+
 def get_reasons(row, prob):
     reasons = []
-    
+
     # Feature mapping for human-readable reasons
-    if row['days_until_deadline'] <= 1:
+    if _has_deadline(row) and row["days_until_deadline"] <= 1:
         reasons.append("Deadline is very soon")
     if row['is_graded'] == 1:
         reasons.append("This is a graded task")
@@ -40,7 +57,7 @@ def predict_one():
     if model is None:
         return jsonify({"error": "Model not loaded"}), 500
     
-    data = request.json
+    data = normalize_row_for_model(request.json)
     df_input = pd.DataFrame([data])
     
     # Predict
@@ -60,7 +77,7 @@ def predict_batch():
     if model is None:
         return jsonify({"error": "Model not loaded"}), 500
     
-    data_list = request.json
+    data_list = [normalize_row_for_model(r) for r in request.json]
     df_input = pd.DataFrame(data_list)
     
     # Predict

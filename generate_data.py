@@ -52,8 +52,9 @@ time_phrases = ["tonight", "today", "by midnight", "this week", "in 1 hour"]
 def generate_notification(idx):
     notif_type = random.choice(list(templates.keys()))
     n = random.randint(1, 10)
-    d = random.randint(0, 14)
-    
+    has_deadline = notif_type in ("assignment_due", "quiz_due")
+    d = random.randint(0, 14) if has_deadline else 0
+
     title_template = random.choice(templates[notif_type])
     title = title_template.format(n=n, d=d)
     
@@ -79,17 +80,21 @@ def generate_notification(idx):
         teacher_posted = 1 if random.random() < 0.9 else 0
         estimated_time_hours = round(random.uniform(0.0, 0.5), 1)
 
-    # Labeling logic
+    # Labeling logic (deadline proximity only applies when there is a real due date)
     urgent = 0
-    if d <= 1 and is_graded == 1:
-        urgent = 1
-    elif notif_type == "quiz_due" and d <= 2:
-        urgent = 1
-    elif requires_submission == 1 and d <= 2 and estimated_time_hours >= 2:
-        urgent = 1
-    elif title_has_urgent_keyword == 1 and is_graded == 1 and d <= 3:
-        urgent = 1
-        
+    if has_deadline:
+        if d <= 1 and is_graded == 1:
+            urgent = 1
+        elif notif_type == "quiz_due" and d <= 2:
+            urgent = 1
+        elif requires_submission == 1 and d <= 2 and estimated_time_hours >= 2:
+            urgent = 1
+        elif title_has_urgent_keyword == 1 and is_graded == 1 and d <= 3:
+            urgent = 1
+    else:
+        if title_has_urgent_keyword == 1 and teacher_posted == 1:
+            urgent = 1 if random.random() < 0.4 else 0
+
     # Add noise (8% flip)
     if random.random() < 0.08:
         urgent = 1 - urgent
@@ -98,6 +103,7 @@ def generate_notification(idx):
         "notification_id": 101 + idx,
         "title": title,
         "notification_type": notif_type,
+        "has_deadline": int(has_deadline),
         "days_until_deadline": d,
         "is_graded": is_graded,
         "estimated_time_hours": estimated_time_hours,

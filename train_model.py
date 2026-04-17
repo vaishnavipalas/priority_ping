@@ -13,12 +13,21 @@ df = pd.read_csv("notifications.csv")
 
 # Drop unused columns
 X = df.drop(columns=["notification_id", "title", "urgent_label"])
+if "has_deadline" not in X.columns:
+    X["has_deadline"] = X["notification_type"].isin(["assignment_due", "quiz_due"]).astype(int)
 y = df["urgent_label"]
 
 # Define features
 numeric_features = ["days_until_deadline", "estimated_time_hours"]
 categorical_features = ["notification_type"]
-binary_features = ["is_graded", "requires_submission", "title_has_urgent_keyword", "has_time_reference", "teacher_posted"]
+binary_features = [
+    "has_deadline",
+    "is_graded",
+    "requires_submission",
+    "title_has_urgent_keyword",
+    "has_time_reference",
+    "teacher_posted",
+]
 
 # Preprocessing
 preprocessor = ColumnTransformer(
