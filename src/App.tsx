@@ -313,7 +313,7 @@ export default function App() {
             <Bell className="text-white" size={32} />
           </motion.div>
           <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">PriorityPing</h1>
-          <p className="mt-2 text-lg text-gray-600">Smart academic notification triage</p>
+          <p className="mt-2 text-lg text-gray-600">Smart academic notification prioritization</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -359,7 +359,7 @@ export default function App() {
           <div>
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2 mb-6">
               <Plus className="text-indigo-600" />
-              Triage New
+              Prioritize New
             </h2>
             
             <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8">
