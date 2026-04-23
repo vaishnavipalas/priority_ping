@@ -22,7 +22,7 @@ def train():
     
     # Feature list
     base_features = [
-        "has_deadline", "days_until_deadline", "is_graded", "requires_submission",
+        "has_deadline", "is_graded", "requires_submission",
         "teacher_posted", "estimated_time_hours", "title_has_urgent_kw",
         "has_time_reference", "course_credits"
     ]

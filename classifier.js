@@ -48,7 +48,6 @@ class CanvasClassifier {
   buildFeatureObject(notification) {
     const defaults = {
       has_deadline: 0,
-      days_until_deadline: -1,
       is_graded: 0,
       requires_submission: 0,
       teacher_posted: 0,

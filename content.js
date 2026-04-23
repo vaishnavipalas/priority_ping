@@ -15,14 +15,9 @@
       classifier = new window.CanvasClassifier(weights);
       window.CanvasClassifierInstance = classifier;
       
-      const storage = await chrome.storage.local.get(['ppTimeWindow', 'ppDeadlineCache']);
+      const storage = await chrome.storage.local.get(['ppTimeWindow']);
       const winMap = { today: 24*3600*1000, '3days': 3*24*3600*1000, '7days': 7*24*3600*1000, all: Infinity };
       currentWindowMs = winMap[storage.ppTimeWindow || '7days'];
-
-      // If on an assignment or discussion page, scrape the due date
-      if (document.querySelector('#assignment_show, #discussion_topic_show')) {
-        scrapeDeadline();
-      }
 
       startObserver();
       processNotifications();
@@ -31,64 +26,9 @@
     }
   }
 
-  /**
-   * Scrapes the precise due date from an assignment or discussion page and caches it.
-   */
-  async function scrapeDeadline() {
-    let dueDateRaw = null;
-    
-    // Assignment Page Structure (Screenshots 2 & 3)
-    const assignmentDateContainer = document.querySelector('.student-assignment-overview .date_text');
-    if (assignmentDateContainer) {
-        if (assignmentDateContainer.textContent.includes('No Due Date')) {
-            dueDateRaw = "None";
-        } else {
-            const datePart = assignmentDateContainer.querySelector('.display_date')?.textContent.trim();
-            const timePart = assignmentDateContainer.querySelector('.display_time')?.textContent.trim();
-            if (datePart && timePart) {
-                dueDateRaw = `${datePart} ${timePart}`;
-            } else {
-                dueDateRaw = assignmentDateContainer.textContent.trim();
-            }
-        }
-    }
-    
-    // Discussion Page Structure (Screenshot 4)
-    if (!dueDateRaw || dueDateRaw === "None") {
-        const discussionDateEl = document.querySelector('.discussions-show-due-dates');
-        if (discussionDateEl) {
-            dueDateRaw = discussionDateEl.textContent.trim().replace('Due ', '');
-        }
-    }
-
-    const titleEl = document.querySelector('.assignment-title h1, .discussion-title, .assignment-title');
-    const urlParts = window.location.pathname.match(/\/courses\/(\d+)\//);
-    
-    if (dueDateRaw && titleEl && urlParts) {
-      const courseId = urlParts[1];
-      const title = titleEl.textContent.trim();
-      
-      const storage = await chrome.storage.local.get('ppDeadlineCache');
-      const cache = storage.ppDeadlineCache || {};
-      
-      const cacheKey = `${courseId}_${title}`;
-      cache[cacheKey] = {
-         dueDate: dueDateRaw,
-         scrapedAt: Date.now()
-      };
-      
-      await chrome.storage.local.set({ ppDeadlineCache: cache });
-      console.log('PriorityPing cached real deadline:', title, dueDateRaw);
-    }
-  }
-
   function startObserver() {
     if (observer) observer.disconnect();
     observer = new MutationObserver(debounce(() => {
-        // If the URL changed but script didn't re-run, check for assignment/discussion page
-        if (document.querySelector('#assignment_show, #discussion_topic_show')) {
-            scrapeDeadline();
-        }
         processNotifications();
     }, 800));
     const target = document.querySelector('#application') || document.body;
@@ -137,37 +77,6 @@
     };
   }
 
-  function parseDueDays(title, courseId = null, cache = {}) {
-    // 1. Check cache first (precise scraping from Screenshot 2)
-    const cacheKey = `${courseId}_${title}`;
-    if (cache[cacheKey]) {
-        const cachedDate = new Date(cache[cacheKey].dueDate);
-        if (!isNaN(cachedDate.getTime())) {
-            const diff = cachedDate.getTime() - Date.now();
-            return Math.max(0, Math.ceil(diff / (1000 * 3600 * 24)));
-        }
-    }
-
-    // 2. Generic Regex fallback
-    const t = title.toLowerCase();
-    if (/due tonight|by midnight|due today/.test(t)) return 0;
-    if (/due tomorrow/.test(t)) return 1;
-    const match = t.match(/due in (\d+) days/);
-    if (match) return parseInt(match[1]);
-    
-    const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    for (let i = 0; i < weekdays.length; i++) {
-        if (t.includes(`due ${weekdays[i]}`)) {
-            const today = new Date().getDay();
-            const target = i;
-            let diff = target - today;
-            if (diff < 0) diff += 7;
-            return diff;
-        }
-    }
-    return -1;
-  }
-
   function debounce(func, wait) {
     let timeout;
     return (...args) => {
@@ -205,87 +114,9 @@
     } catch (e) { return true; }
   }
 
-  /**
-   * Background pre-fetcher for assignments and discussions.
-   */
-  async function preFetchDeadlines(notifications) {
-    const storage = await chrome.storage.local.get('ppDeadlineCache');
-    const cache = storage.ppDeadlineCache || {};
-    let cacheUpdated = false;
-
-    const pending = notifications.filter(item => {
-      const isTriagable = item.notification_type === 'assignment_due' || item.notification_type === 'discussion';
-      if (!isTriagable) return false;
-      
-      const link = item.raw_el?.querySelector('a.content_summary')?.getAttribute('href');
-      if (!link) return false;
-      
-      const parts = link.match(/\/courses\/(\d+)\//);
-      if (!parts) return false;
-      
-      const cacheKey = `${parts[1]}_${item.title}`;
-      return !cache[cacheKey];
-    });
-
-    if (pending.length === 0) return;
-
-    console.log(`PriorityPing: Background fetching ${pending.length} deadlines...`);
-
-    for (const item of pending.slice(0, 3)) {
-      const link = item.raw_el.querySelector('a.content_summary').getAttribute('href');
-      const parts = link.match(/\/courses\/(\d+)\//);
-      const cacheKey = `${parts[1]}_${item.title}`;
-
-      try {
-        const response = await fetch(link);
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        
-        let dueDateRaw = null;
-        
-        // Peek Assignment
-        const assignmentDateContainer = doc.querySelector('.student-assignment-overview .date_text');
-        if (assignmentDateContainer) {
-            if (assignmentDateContainer.textContent.includes('No Due Date')) {
-                dueDateRaw = "None";
-            } else {
-                const datePart = assignmentDateContainer.querySelector('.display_date')?.textContent.trim();
-                const timePart = assignmentDateContainer.querySelector('.display_time')?.textContent.trim();
-                dueDateRaw = (datePart && timePart) ? `${datePart} ${timePart}` : assignmentDateContainer.textContent.trim();
-            }
-        }
-        
-        // Peek Discussion
-        if (!dueDateRaw) {
-            const discEl = doc.querySelector('.discussions-show-due-dates');
-            if (discEl) dueDateRaw = discEl.textContent.trim().replace('Due ', '');
-        }
-
-        if (dueDateRaw) {
-          cache[cacheKey] = {
-            dueDate: dueDateRaw,
-            scrapedAt: Date.now()
-          };
-          cacheUpdated = true;
-          console.log(`PriorityPing: Auto-fetched real deadline for ${item.title}: ${dueDateRaw}`);
-        }
-      } catch (err) { }
-    }
-
-    if (cacheUpdated) {
-      await chrome.storage.local.set({ ppDeadlineCache: cache });
-      lastDigest = ''; // Force re-render
-      processNotifications();
-    }
-  }
-
   async function processNotifications() {
     const { elements, type } = collectNotificationElements();
     if (elements.length === 0) return;
-
-    const storage = await chrome.storage.local.get('ppDeadlineCache');
-    const deadlineCache = storage.ppDeadlineCache || {};
 
     const parsed = elements
       .map(el => parseElement(el))
@@ -303,15 +134,13 @@
         notification_type: item.notification_type,
         course_name: item.course_name,
         has_deadline: item.notification_type === 'assignment_due' || item.notification_type === 'quiz_exam' || item.notification_type === 'discussion' ? 1 : 0,
-        days_until_deadline: parseDueDays(item.title, item.course_name, deadlineCache),
         is_graded: ['assignment_due', 'quiz_exam', 'grade_posted'].includes(item.notification_type) ? 1 : 0,
         requires_submission: ['assignment_due', 'quiz_exam', 'discussion'].includes(item.notification_type) ? 1 : 0,
         teacher_posted: item.notification_type === 'discussion' ? 0 : 1,
         estimated_time_hours: item.notification_type === 'assignment_due' ? 4 : 1,
-        title_has_urgent_kw: /due|tonight|urgent|reminder|missing|overdue|important|final|deadline/i.test(item.title) ? 1 : 0,
+        title_has_urgent_kw: /due|tonight|urgent|reminder|missing|overdue|important|final|deadline|past due|late|by midnight|due today|due tomorrow|closes/i.test(item.title) ? 1 : 0,
         has_time_reference: /tonight|today|by midnight|this week|tomorrow|friday|sunday/i.test(item.title) ? 1 : 0,
-        course_credits: (item.course_name === '67272' || item.course_name === '15150') ? 12 : 9,
-        raw_el: item.raw_el // keep reference for pre-fetcher
+        course_credits: (item.course_name === '67272' || item.course_name === '15150') ? 12 : 9
       };
       
       return {
@@ -321,9 +150,6 @@
     });
 
     window.PriorityPingUI.render(lastMapped, { recentActivityActive: isRecentActivityActive });
-
-    // Trigger pre-fetcher for any missing dates
-    preFetchDeadlines(lastMapped);
   }
 
 

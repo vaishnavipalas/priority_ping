@@ -23,7 +23,7 @@ TYPES = [
 
 WEIGHTS = [0.30, 0.10, 0.10, 0.04, 0.25, 0.12, 0.07, 0.02]
 
-URGENT_KW = ["due", "tonight", "urgent", "reminder", "missing", "overdue", "important", "final", "deadline"]
+URGENT_KW = ["due", "tonight", "urgent", "reminder", "missing", "overdue", "important", "final", "deadline", "past due", "late", "by midnight", "due today", "due tomorrow", "closes"]
 TIME_PHRASES = ["tonight", "today", "by midnight", "this week", "tomorrow", "friday", "sunday"]
 
 TEMPLATES = {
@@ -76,11 +76,6 @@ def generate_data(n=1000):
         # Features
         has_deadline = 1 if notif_type in ["assignment_due", "quiz_exam", "discussion"] or random.random() < 0.2 else 0
         
-        if has_deadline:
-            days_until_deadline = random.randint(0, 14)
-        else:
-            days_until_deadline = -1
-            
         is_graded = 1 if notif_type in ["assignment_due", "quiz_exam", "grade_posted"] else 0
         requires_submission = 1 if notif_type in ["assignment_due", "quiz_exam", "discussion"] else 0
         teacher_posted = 1 if notif_type != "discussion" else random.randint(0, 1)
@@ -97,16 +92,16 @@ def generate_data(n=1000):
         # Priority labeling logic
         priority = 0
         # Priority 3 (critical)
-        if (has_deadline and days_until_deadline <= 1 and requires_submission) or \
-           (notif_type == "quiz_exam" and days_until_deadline <= 1):
+        if (has_deadline and title_has_urgent_kw and has_time_reference) or \
+           (notif_type == "quiz_exam" and title_has_urgent_kw):
             priority = 3
         # Priority 2 (high)
-        elif (has_deadline and 2 <= days_until_deadline <= 4 and requires_submission) or \
-             (notif_type == "quiz_exam" and 2 <= days_until_deadline <= 5) or \
+        elif (has_deadline and title_has_urgent_kw) or \
+             (notif_type == "quiz_exam" and has_time_reference) or \
              (title_has_urgent_kw and has_deadline):
             priority = 2
         # Priority 1 (moderate)
-        elif (has_deadline and 5 <= days_until_deadline <= 14) or \
+        elif (has_deadline) or \
              (notif_type == "grade_posted") or \
              (notif_type == "discussion"):
             priority = 1
@@ -122,7 +117,6 @@ def generate_data(n=1000):
             "course_name": course_code,
             "notification_type": notif_type,
             "has_deadline": int(has_deadline),
-            "days_until_deadline": int(days_until_deadline),
             "is_graded": int(is_graded),
             "requires_submission": int(requires_submission),
             "teacher_posted": int(teacher_posted),
