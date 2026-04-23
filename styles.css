@@ -1,307 +1,115 @@
 /**
- * PriorityPing Styles
+ * PriorityPing Modern Panel Styles
  */
-
-#priority-ping-panel {
+#pp-dashboard {
     position: fixed;
-    top: 24px;
-    right: 24px;
-    width: min(520px, calc(100vw - 48px));
-    max-height: 85vh;
+    top: 20px;
+    right: 20px;
+    width: 480px;
     background: #ffffff;
     border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 2px 5px rgba(0, 0, 0, 0.05);
-    z-index: 9999999;
-    display: flex;
-    flex-direction: column;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    z-index: 10000;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    overflow: hidden;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                border-radius 0.3s ease;
-    border: 1px solid #e0e0e0;
-}
-
-#priority-ping-panel.pp-icon {
-    width: 48px !important;
-    height: 48px !important;
-    border-radius: 24px;
-    cursor: pointer;
-    overflow: hidden;
-}
-
-#priority-ping-panel.pp-icon .pp-content {
-    display: none;
-}
-
-#priority-ping-panel.pp-icon .pp-header {
-    padding: 0;
-    height: 100%;
-}
-
-#priority-ping-panel.pp-icon .pp-logo {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    margin: 0;
-    font-size: 18px;
-}
-
-#priority-ping-panel.pp-icon .pp-header-content,
-#priority-ping-panel.pp-icon .pp-hide-btn {
-    display: none;
-}
-
-.pp-header {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #eee;
-    cursor: grab;
-    user-select: none;
-}
-
-.pp-dragging {
-    cursor: grabbing !important;
-}
-
-.pp-logo {
-    background: #3b5bdb;
-    color: white;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    font-weight: 800;
-    margin-right: 12px;
-    flex-shrink: 0;
-}
-
-.pp-header-content {
-    flex-grow: 1;
-}
-
-.pp-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: #1a1a1a;
-}
-
-.pp-subtitle {
-    margin: 0;
-    font-size: 11px;
-    color: #666;
-}
-
-.pp-hide-btn {
-    background: #eee;
-    border: none;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    color: #555;
-    transition: background 0.2s;
-}
-
-.pp-hide-btn:hover {
-    background: #e0e0e0;
-}
-
-.pp-content {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    max-height: 85vh;
+    border: 1px solid #e2e8f0;
 }
 
-.pp-filters {
-    display: flex;
-    gap: 8px;
-}
-
-.pp-pill {
-    background: #f1f3f5;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #495057;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.pp-pill.active {
-    background: #3b5bdb;
-    color: white;
-}
-
-.pp-scope-note {
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.pp-note-blue { background: #e7f5ff; color: #1971c2; border: 1px solid #a5d8ff; }
-.pp-note-amber { background: #fff9db; color: #f08c00; border: 1px solid #ffec99; }
-
-.pp-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
-@media (max-width: 1100px) {
-    .pp-grid { grid-template-columns: 1fr; }
-}
-
-.pp-col-title {
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #868e96;
-    margin: 0 0 10px 0;
-    letter-spacing: 0.5px;
-}
-
-.pp-card {
-    background: #ffffff;
-    border: 1px solid #e9ecef;
-    border-left: 4px solid #ced4da;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    transition: transform 0.2s;
-}
-
-.pp-card:hover {
-    transform: translateY(-2px);
-}
-
-.priority-3 { background: #fff0f0; border-color: #ffc9c9; border-left-color: #e03131; }
-.priority-2 { background: #fff4e6; border-color: #ffe8cc; border-left-color: #f76707; }
-.priority-1 { background: #f8f9fa; border-left-color: #fab005; }
-.priority-0 { opacity: 0.75; }
-
-.pp-card-header {
+.pp-panel-header {
+    padding: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+    border-radius: 12px 12px 0 0;
 }
 
-.pp-badge {
+.pp-logo { font-weight: 800; color: #1e293b; font-size: 18px; }
+.pp-logo span { color: #3b82f6; font-size: 14px; margin-left: 4px; }
+
+.pp-controls button {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    color: #94a3b8;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.pp-scroll-area {
+    overflow-y: auto;
+    padding: 16px;
+    flex: 1;
+}
+
+.pp-section h3 {
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 12px 0;
+}
+
+.pp-card {
+    background: #fff;
+    border: 1px solid #F1F5F9;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    transition: transform 0.15s ease;
+    border-left: 5px solid #e2e8f0;
+}
+
+.pp-card:hover { transform: translateX(-4px); }
+
+/* Priority Border Colors */
+.pp-priority-high { border-left-color: #ef4444; background: #fff5f5; }
+.pp-priority-medium { border-left-color: #f59e0b; background: #fffbeb; }
+.pp-priority-low { border-left-color: #10b981; }
+
+.pp-tag {
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #475569;
     padding: 2px 6px;
     border-radius: 4px;
     text-transform: uppercase;
 }
 
-.pp-badge-critical { background: #e03131; color: white; }
-.pp-badge-high { background: #f76707; color: white; }
-.pp-badge-moderate { background: #ffd43b; color: #856404; }
-.pp-badge-low { background: #adb5bd; color: white; }
+.pp-title { font-weight: 600; font-size: 14px; margin: 4px 0; color: #1e293b; }
+.pp-headline { font-size: 13px; color: #334155; font-weight: 500; font-style: italic; }
 
-.pp-confidence {
-    font-size: 10px;
-    color: #868e96;
-    font-weight: 600;
-}
-
-.pp-card-title {
-    font-size: 14px;
-    font-weight: 700;
-    margin: 0 0 6px 0;
-    color: #212529;
-    line-height: 1.3;
-}
-
-.pp-card-meta {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-size: 11px;
-    color: #495057;
-}
-
-.pp-course-code { font-weight: 700; }
-.pp-deadline { background: #f1f3f5; padding: 1px 4px; border-radius: 3px; }
-
-.pp-tags { display: flex; gap: 4px; }
-.pp-tag {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 5px;
-    border-radius: 4px;
-}
-.pp-tag-action { background: #d3f9d8; color: #2b8a3e; }
-.pp-tag-fyi { background: #e7f5ff; color: #1971c2; }
-
-.pp-why-btn {
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 10px;
-    color: #3b5bdb;
-    font-weight: 700;
-    cursor: pointer;
-    margin-top: 8px;
-}
+.pp-meta { font-size: 11px; color: #94a3b8; margin-top: 4px; }
 
 .pp-explanation {
     margin-top: 8px;
-    padding: 8px;
-    background: rgba(0,0,0,0.03);
-    border-radius: 6px;
-    font-size: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
 }
 
-.pp-exp-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 4px;
-}
-
-.pp-exp-label { color: #495057; }
-.pp-exp-dir { font-weight: 700; text-transform: capitalize; }
-.pp-exp-dir.dir-increased { color: #c92a2a; }
-.pp-exp-dir.dir-decreased { color: #2b8a3e; }
-
-.pp-toggle-low {
-    width: 100%;
-    background: #f8f9fa;
-    border: 1px dashed #ced4da;
-    padding: 8px;
-    border-radius: 8px;
+.pp-factor {
     font-size: 12px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.pp-icon::before { content: '•'; }
+.pp-icon.up { color: #ef4444; font-weight: bold; }
+.pp-icon.down { color: #10b981; font-weight: bold; }
+
+.pp-suppressed {
+    margin-top: 6px;
+    font-size: 11px;
     font-weight: 600;
-    color: #868e96;
-    cursor: pointer;
-    margin-top: 10px;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 4px 8px;
+    border-radius: 4px;
 }
-
-.pp-footer {
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid #eee;
-    text-align: center;
-}
-
-.pp-course-settings-link {
-    font-size: 10px;
-    color: #adb5bd;
-    font-weight: 600;
-}
-
-.hidden { display: none !important; }

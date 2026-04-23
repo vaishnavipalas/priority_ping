@@ -1,125 +1,96 @@
 /**
- * Logistic Regression Inference Engine for PriorityPing
+ * Logistic Regression Engine for PriorityPing
+ * Dual-Bucket Implementation (Action vs Info)
  */
 class CanvasClassifier {
   constructor(weights) {
-    this.intercept = weights.intercept; // [n_classes]
-    this.coef = weights.coef; // [n_classes, n_features]
-    this.classes = weights.classes;
-    this.featureNames = weights.feature_names;
-    this.featureMeans = weights.feature_means;
-    this.featureStds = weights.feature_stds;
-    this.typeCategories = weights.notification_type_categories;
-    this.typeBaseline = this.typeCategories[0];
+    this.weights = weights;
   }
 
-  softmax(scores) {
-    const maxScore = Math.max(...scores);
-    const expScores = scores.map(s => Math.exp(s - maxScore));
-    const sumExp = expScores.reduce((a, b) => a + b, 0);
-    return expScores.map(es => es / sumExp);
+  sigmoid(z) {
+    return 1 / (1 + Math.exp(-z));
   }
 
-  normalize(features) {
-    const normalized = {};
-    for (const name of this.featureNames) {
-      const val = features[name] || 0;
-      const mean = this.featureMeans[name] || 0;
-      const std = this.featureStds[name] || 1;
-      normalized[name] = (val - mean) / (std || 1);
-      
-      if (isNaN(normalized[name]) || !isFinite(normalized[name])) {
-        normalized[name] = 0;
+  predict(features) {
+    const bucket = features.bucket;
+    const config = this.weights[bucket];
+    if (!config) return { score: 0, label: 'Low' };
+
+    let z = config.bias;
+    for (const [feature, weight] of Object.entries(config.weights)) {
+      const val = features[feature] || 0;
+      // Note: course_importance is 1-3, we treat 2 as baseline (z+=0)
+      const adjustedVal = (feature === 'course_importance') ? (val - 2) : val;
+      z += weight * adjustedVal;
+    }
+
+    const score = this.sigmoid(z);
+    let label = "Low";
+    if (score >= 0.7) label = "High";
+    else if (score >= 0.4) label = "Medium";
+
+    return { score, label };
+  }
+
+  explain(features) {
+    const bucket = features.bucket;
+    const config = this.weights[bucket];
+    const prediction = this.predict(features);
+    
+    const factors = [];
+    let suppressed_by = null;
+
+    for (const [feature, weight] of Object.entries(config.weights)) {
+      const val = features[feature] || 0;
+      const adjustedVal = (feature === 'course_importance') ? (val - 2) : val;
+      const contribution = weight * adjustedVal;
+
+      if (Math.abs(contribution) > 0.3) {
+        factors.push({
+          feature,
+          label: config.labels[feature] || feature,
+          impact: Math.abs(contribution) > 1.5 ? 'high' : 'medium',
+          direction: contribution > 0 ? 'up' : 'down',
+          contribution
+        });
       }
     }
-    return normalized;
-  }
 
-  encodeType(type) {
-    const encoded = {};
-    // Skip baseline (index 0)
-    for (let i = 1; i < this.typeCategories.length; i++) {
-        const catName = `notification_type_${this.typeCategories[i]}`;
-        encoded[catName] = (type === this.typeCategories[i]) ? 1 : 0;
+    factors.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+
+    // Detection for "suppressed_by" (e.g. urgent keyword in a low-importance class)
+    const lowImportance = factors.find(f => f.feature === 'course_importance' && f.direction === 'down');
+    if (lowImportance && prediction.score < 0.7) {
+      suppressed_by = "Low-priority course settings";
     }
-    return encoded;
-  }
 
-  buildFeatureObject(notification) {
-    const defaults = {
-      has_deadline: 0,
-      is_graded: 0,
-      requires_submission: 0,
-      teacher_posted: 0,
-      estimated_time_hours: 1.0,
-      title_has_urgent_kw: 0,
-      has_time_reference: 0,
-      course_credits: 9
+    return {
+      score: prediction.score,
+      priority_label: prediction.label,
+      bucket: bucket,
+      headline: this.generateHeadline(features, factors, prediction.label),
+      factors: factors.slice(0, 3).map(f => ({
+          feature: f.feature,
+          label: f.label,
+          impact: f.impact,
+          direction: f.direction
+      })),
+      suppressed_by: suppressed_by
     };
-
-    const typeEncoding = this.encodeType(notification.notification_type || this.typeBaseline);
-    return { ...defaults, ...notification, ...typeEncoding };
   }
 
-  predict(notification) {
-    try {
-      const features = this.buildFeatureObject(notification);
-      const normalized = this.normalize(features);
-      
-      // Vectorize
-      const x = this.featureNames.map(name => normalized[name]);
-      
-      // Compute dot products + intercept for each class
-      // z_k = sum(w_ki * x_i) + b_k
-      const scores = this.classes.map((c, k) => {
-          let dot = 0;
-          for (let i = 0; i < x.length; i++) {
-              dot += this.coef[k][i] * x[i];
-          }
-          return dot + this.intercept[k];
-      });
-
-      const probs = this.softmax(scores);
-      const maxProb = Math.max(...probs);
-      const priority = this.classes[probs.indexOf(maxProb)];
-      
-      const labels = ['low', 'moderate', 'high', 'critical'];
-      
-      return {
-        priority: priority,
-        confidence: maxProb,
-        label: labels[priority],
-        uncertain: maxProb < 0.6
-      };
-    } catch (err) {
-      console.error('Classification error:', err);
-      return { priority: 1, confidence: 0, label: 'moderate', uncertain: true };
+  generateHeadline(features, factors, label) {
+    const topFactor = factors[0];
+    if (features.bucket === 'action') {
+      if (label === 'High' || label === 'Critical') {
+        if (features.notification_type === 5) return "Action required: Missing assignment in a priority class";
+        if (features.title_has_urgent_kw) return "Urgent deadline detected in your activity";
+        return "Action required: Impending academic task";
+      }
+    } else {
+      if (label === 'High') return "Important announcement you should see";
     }
-  }
-
-  explain(notification) {
-    const features = this.buildFeatureObject(notification);
-    const normalized = this.normalize(features);
-    const result = this.predict(notification);
-    const k = this.classes.indexOf(result.priority);
-    
-    if (k === -1) return [];
-
-    const contributions = this.featureNames.map((name, i) => {
-        const val = normalized[name];
-        const weight = this.coef[k][i];
-        const contrib = weight * val;
-        return {
-            feature: name,
-            value: features[name],
-            magnitude: Math.abs(contrib),
-            direction: contrib > 0 ? 'increased' : 'decreased'
-        };
-    });
-
-    return contributions
-        .sort((a, b) => b.magnitude - a.magnitude)
-        .slice(0, 3);
+    return `${label} priority notification`;
   }
 }
 

@@ -4,20 +4,25 @@
 (function() {
   let classifier = null;
   let observer = null;
+  let weights = {};
+  let seenCourses = new Set();
   let lastDigest = '';
-  let lastMapped = [];
-  let currentWindowMs = 7 * 24 * 3600 * 1000;
+
+  const URGENT_REGEX = /due|tonight|urgent|reminder|missing|overdue|important|final|deadline|past due|late|by midnight|due today|due tomorrow|closes/i;
+  const TIME_REF_REGEX = /today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}\/\d{1,2}/i;
 
   async function init() {
     try {
-      const response = await fetch(chrome.runtime.getURL('model/weights.json'));
-      const weights = await response.json();
-      classifier = new window.CanvasClassifier(weights);
-      window.CanvasClassifierInstance = classifier;
-      
-      const storage = await chrome.storage.local.get(['ppTimeWindow']);
-      const winMap = { today: 24*3600*1000, '3days': 3*24*3600*1000, '7days': 7*24*3600*1000, all: Infinity };
-      currentWindowMs = winMap[storage.ppTimeWindow || '7days'];
+      const wResponse = await fetch(chrome.runtime.getURL('model/weights.json'));
+      const wData = await wResponse.json();
+      classifier = new window.CanvasClassifier(wData);
+
+      // Listen for storage changes (importance updates)
+      chrome.storage.onChanged.addListener((changes) => {
+        if (changes.ppCourseWeights || changes.ppTimeWindow) {
+           processNotifications();
+        }
+      });
 
       startObserver();
       processNotifications();
@@ -28,135 +33,130 @@
 
   function startObserver() {
     if (observer) observer.disconnect();
-    observer = new MutationObserver(debounce(() => {
-        processNotifications();
-    }, 800));
+    observer = new MutationObserver(debounce(() => processNotifications(), 800));
     const target = document.querySelector('#application') || document.body;
     observer.observe(target, { childList: true, subtree: true });
   }
 
-  function collectNotificationElements() {
-    // Priority 1: Table structure from Screenshot 1
-    const tableRows = Array.from(document.querySelectorAll('table#assignment-details tbody tr, table.stream-details tbody tr'));
-    if (tableRows.length > 0) return { elements: tableRows, type: 'table' };
+  async function processNotifications() {
+    const rows = Array.from(document.querySelectorAll('li.stream-category table.stream-details tbody tr'));
+    if (rows.length === 0) return;
+
+    const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppSeenCourses']);
+    const courseWeights = storage.ppCourseWeights || {};
+    const timeWindow = storage.ppTimeWindow || '7days';
+    const oldSeen = storage.ppSeenCourses || [];
+    seenCourses = new Set(oldSeen);
+
+    const parsed = rows.map(row => parseRow(row, courseWeights)).filter(p => p !== null);
     
-    // Priority 2: List structure
-    const categories = Array.from(document.querySelectorAll('li.stream-category'));
-    return { elements: categories, type: 'list' };
+    // Update seen courses
+    const currentSeen = Array.from(seenCourses);
+    if (currentSeen.length !== oldSeen.length) {
+       chrome.storage.local.set({ ppSeenCourses: currentSeen });
+    }
+
+    // Filter by time window (for display only)
+    const filtered = parsed.filter(item => isWithinWindow(item.date_posted, timeWindow));
+
+    const digest = filtered.map(f => f.id).join('|');
+    if (digest === lastDigest) return;
+    lastDigest = digest;
+
+    const results = filtered.map(item => {
+      const explanation = classifier.explain(item.features);
+      return {
+        ...item,
+        explanation
+      };
+    });
+
+    if (window.PriorityPingUI) {
+      window.PriorityPingUI.render(results);
+    }
   }
 
-  function parseElement(el) {
-    const titleEl = el.querySelector('a.content_summary');
-    if (!titleEl) return null;
-    
-    const courseEl = el.querySelector('span.fake-link');
-    // Using Screenshot 1 logic: td.date -> span[data-html-tooltip-title]
-    const dateCell = el.querySelector('td.date');
-    const dateSpan = dateCell?.querySelector('span[data-html-tooltip-title]') || dateCell?.querySelector('span');
-    const dateText = dateSpan?.getAttribute('data-html-tooltip-title') || dateSpan?.textContent?.trim();
+  function parseRow(row, courseWeights) {
+    const titleLink = row.querySelector('a.content_summary');
+    if (!titleLink) return null;
 
-    const categoryHint = el.closest('[data-category]')?.dataset.category;
+    const href = titleLink.getAttribute('href') || '';
+    const courseMatch = href.match(/\/courses\/(\d+)/);
+    const courseId = courseMatch ? courseMatch[1] : null;
+    if (courseId) seenCourses.add(courseId);
 
-    const rawTitle = titleEl.textContent.trim();
-    const courseName = courseEl?.textContent.trim() || 'General';
+    const categoryLi = row.closest('li.stream-category');
+    const category = categoryLi?.dataset.category || 'Announcement';
+
+    const dateCell = row.querySelector('td.date span[data-html-tooltip-title]');
+    const datePosted = dateCell?.getAttribute('data-html-tooltip-title') || '';
+
+    const fullTitle = titleLink.textContent.trim();
+    const fakeLink = titleLink.querySelector('.fake-link');
+    const cleanTitle = fullTitle.replace(fakeLink?.textContent || '', '').replace(/^[:-]\s*/, '').trim();
+
+    const bucket = ['Assignment', 'DiscussionTopic', 'Submission'].includes(category) || cleanTitle.toLowerCase().includes('quiz') ? 'action' : 'info';
     
-    let type = 'announcement_info';
-    if (categoryHint === 'Announcement') type = 'announcement_info';
-    else if (categoryHint === 'Assignment') type = 'assignment_due';
-    else if (categoryHint === 'DiscussionTopic') type = 'discussion';
-    else if (categoryHint === 'Submission') type = 'grade_posted';
-    else type = inferTypeFromTitle(rawTitle);
+    const features = {
+      bucket,
+      course_id: courseId,
+      course_importance: courseWeights[courseId] || 2,
+      title_has_urgent_kw: URGENT_REGEX.test(cleanTitle) ? 1 : 0,
+      title_has_time_ref: TIME_REF_REGEX.test(cleanTitle) ? 1 : 0
+    };
+
+    if (bucket === 'action') {
+      let typeWeight = 3;
+      if (cleanTitle.toLowerCase().includes('missing')) typeWeight = 5;
+      else if (cleanTitle.toLowerCase().includes('quiz')) typeWeight = 5;
+      else if (category === 'Submission') typeWeight = 2;
+
+      features.notification_type = typeWeight;
+      features.requires_action = (typeWeight >= 3 && category !== 'Submission') ? 1 : 0;
+      features.is_graded = (category === 'Assignment' || category === 'Submission') ? 1 : 0;
+    } else {
+      let typeWeight = 2;
+      if (features.title_has_urgent_kw) typeWeight = 4;
+      if (category === 'Conversation' || category === 'Message') typeWeight = 1;
+
+      features.announcement_type = typeWeight;
+      features.is_course_wide = courseId ? 1 : 0;
+    }
 
     return {
-      id: rawTitle + (dateText || ''),
-      title: rawTitle.replace(courseName, '').replace(/^[:-]\s*/, '').trim(),
-      course_name: courseName,
-      notification_type: type,
-      date_received: dateText,
-      raw_el: el
+      id: cleanTitle + datePosted,
+      title: cleanTitle,
+      course_id: courseId,
+      date_posted: datePosted,
+      category,
+      features
     };
+  }
+
+  function isWithinWindow(dateStr, windowKey) {
+    if (windowKey === 'all') return true;
+    const winDays = { today: 1, '3days': 3, '7days': 7 };
+    const maxMs = winDays[windowKey] * 24 * 3600 * 1000;
+    
+    try {
+      // Normalize Canvas date "Apr 22 at 7:58pm"
+      let dStr = dateStr.replace(' at ', ' ');
+      if (!dStr.includes(new Date().getFullYear())) dStr += ` ${new Date().getFullYear()}`;
+      const d = new Date(dStr);
+      return (Date.now() - d.getTime()) <= maxMs;
+    } catch (e) { return true; }
   }
 
   function debounce(func, wait) {
     let timeout;
     return (...args) => {
       clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
+      timeout = setTimeout(() => func(...args), wait);
     };
   }
 
-  function inferTypeFromTitle(text) {
-    const t = text.toLowerCase();
-    if (/quiz|exam|midterm|final/.test(t)) return 'quiz_exam';
-    if (/grade|graded|score|feedback posted/.test(t)) return 'grade_posted';
-    if (/announcement/.test(t) && /urgent|important|due/.test(t)) return 'announcement_urgent';
-    if (/announcement|update|info/.test(t)) return 'announcement_info';
-    if (/discussion|reply|thread/.test(t)) return 'discussion';
-    if (/group|team|collaboration|peer/.test(t)) return 'group_collab';
-    if (/event|seminar|workshop|optional/.test(t)) return 'event_optional';
-    if (/assignment|homework|submit|submission|due/.test(t)) return 'assignment_due';
-    return 'announcement_info';
-  }
-
-  function isWithinWindow(dateText, windowMs) {
-    if (windowMs === Infinity) return true;
-    if (!dateText) return false;
-    try {
-      // Normalize Canvas date (e.g., "Apr 22 at 7:58pm")
-      let cleanDate = dateText.replace(' at ', ' ');
-      // Append current year if missing
-      if (!cleanDate.includes(new Date().getFullYear().toString())) {
-          cleanDate += ` ${new Date().getFullYear()}`;
-      }
-      const d = new Date(cleanDate);
-      if (isNaN(d.getTime())) return true;
-      return (Date.now() - d.getTime()) <= windowMs;
-    } catch (e) { return true; }
-  }
-
-  async function processNotifications() {
-    const { elements, type } = collectNotificationElements();
-    if (elements.length === 0) return;
-
-    const parsed = elements
-      .map(el => parseElement(el))
-      .filter(p => p && isWithinWindow(p.date_received, currentWindowMs));
-
-    const digest = parsed.map(p => p.id).join('|');
-    if (digest === lastDigest) return;
-    lastDigest = digest;
-
-    const isRecentActivityActive = !!document.querySelector('ul.recent_activity, table.stream-details');
-
-    lastMapped = parsed.map(item => {
-      const obj = {
-        title: item.title,
-        notification_type: item.notification_type,
-        course_name: item.course_name,
-        has_deadline: item.notification_type === 'assignment_due' || item.notification_type === 'quiz_exam' || item.notification_type === 'discussion' ? 1 : 0,
-        is_graded: ['assignment_due', 'quiz_exam', 'grade_posted'].includes(item.notification_type) ? 1 : 0,
-        requires_submission: ['assignment_due', 'quiz_exam', 'discussion'].includes(item.notification_type) ? 1 : 0,
-        teacher_posted: item.notification_type === 'discussion' ? 0 : 1,
-        estimated_time_hours: item.notification_type === 'assignment_due' ? 4 : 1,
-        title_has_urgent_kw: /due|tonight|urgent|reminder|missing|overdue|important|final|deadline|past due|late|by midnight|due today|due tomorrow|closes/i.test(item.title) ? 1 : 0,
-        has_time_reference: /tonight|today|by midnight|this week|tomorrow|friday|sunday/i.test(item.title) ? 1 : 0,
-        course_credits: (item.course_name === '67272' || item.course_name === '15150') ? 12 : 9
-      };
-      
-      return {
-          ...obj,
-          prediction: classifier.predict(obj)
-      };
-    });
-
-    window.PriorityPingUI.render(lastMapped, { recentActivityActive: isRecentActivityActive });
-  }
-
-
   window.ppSetWindow = (ms) => {
-      currentWindowMs = ms;
-      lastDigest = ''; // Force re-render
-      processNotifications();
+    chrome.storage.local.set({ ppTimeWindow: ms });
   };
 
   init();

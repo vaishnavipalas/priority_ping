@@ -1,0 +1,9 @@
+[
+  { "bucket": "action", "course_id": "52640", "course_importance": 3, "notification_type": 5, "requires_action": 1, "is_graded": 1, "title_has_urgent_kw": 1, "title_has_time_ref": 1, "label": 1, "title": "Missing Assignment: Lab 4" },
+  { "bucket": "action", "course_id": "84389", "course_importance": 1, "notification_type": 3, "requires_action": 0, "is_graded": 0, "title_has_urgent_kw": 0, "title_has_time_ref": 0, "label": 0, "title": "Assignment Created: Optional Reading" },
+  { "bucket": "info", "course_id": "15150", "course_importance": 3, "notification_type": 4, "is_course_wide": 1, "title_has_urgent_kw": 1, "title_has_time_ref": 1, "label": 1, "title": "URGENT: Exam Room Change" },
+  { "bucket": "info", "course_id": "05318", "course_importance": 2, "notification_type": 2, "is_course_wide": 1, "title_has_urgent_kw": 0, "title_has_time_ref": 0, "label": 0, "title": "Slides posted for Lecture 10" },
+  { "bucket": "info", "course_id": null, "course_importance": 2, "notification_type": 1, "is_course_wide": 0, "title_has_urgent_kw": 0, "title_has_time_ref": 0, "label": 0, "title": "Hey, do you want to study?" },
+  { "bucket": "action", "course_id": "67272", "course_importance": 3, "notification_type": 3, "requires_action": 1, "is_graded": 1, "title_has_urgent_kw": 0, "title_has_time_ref": 1, "label": 1, "title": "Project Phase 2 due tomorrow" },
+  { "bucket": "action", "course_id": "70452", "course_importance": 2, "notification_type": 2, "requires_action": 0, "is_graded": 1, "title_has_urgent_kw": 0, "title_has_time_ref": 0, "label": 0, "title": "Grade Posted: Quiz 1" }
+]
