@@ -12,16 +12,17 @@
   const TIME_REF_REGEX = /today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}\/\d{1,2}/i;
 
   async function init() {
+    console.log("PriorityPing: Initializing...");
     try {
       const resp = await fetch(chrome.runtime.getURL('weights.json'));
       weights = await resp.json();
       classifier = new window.CanvasClassifier(weights);
+      console.log("PriorityPing: Classifier loaded.");
 
       // Listener for storage changes (settings)
       chrome.storage.onChanged.addListener((changes) => {
-        if (changes.ppCourseWeights || changes.ppTimeWindow || changes.ppDemoMode) {
-          process();
-        }
+        console.log("PriorityPing: Storage changed, re-processing...");
+        process();
       });
 
       startObserver();
@@ -33,14 +34,19 @@
     if (observer) observer.disconnect();
     observer = new MutationObserver(debounce(() => {
       chrome.storage.local.get('ppDemoMode', (data) => {
-        if (!data.ppDemoMode) process();
+        if (!data.ppDemoMode) {
+          console.log("PriorityPing: DOM changed, re-scraping...");
+          process();
+        }
       });
     }, 800));
     const target = document.querySelector('#application') || document.body;
     observer.observe(target, { childList: true, subtree: true });
+    console.log("PriorityPing: Mutation observer active.");
   }
 
   async function process() {
+    console.log("PriorityPing: Processing notifications...");
     const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppSeenCourses']);
     const courseWeights = storage.ppCourseWeights || {};
     const winKey = storage.ppTimeWindow || '7days';

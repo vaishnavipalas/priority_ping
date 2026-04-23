@@ -1,14 +1,9 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Rounded Background -->
-  <rect width="128" height="128" rx="32" fill="#3B5BDB"/>
-  
-  <!-- "P" Symbol 1 -->
-  <path d="M35 38H65C74 38 82 46 82 55C82 64 74 72 65 72H50V90H35V38ZM50 58H63C65 58 67 56 67 55C67 54 65 52 63 52H50V58Z" fill="white"/>
-  
-  <!-- "P" Symbol 2 (Offset and semi-transparent for depth) -->
-  <path d="M52 48H77C86 48 94 56 94 65C94 74 86 82 77 82H67V95H52V48ZM67 68H75C77 68 79 66 79 65C79 64 77 62 75 62H67V68Z" fill="white" fill-opacity="0.6"/>
-  
-  <!-- "Ping" Signal Pulse -->
-  <circle cx="100" cy="28" r="8" fill="#4dabf7"/>
-  <circle cx="100" cy="28" r="14" stroke="#4dabf7" stroke-width="2" stroke-dasharray="4 2"/>
+  <rect width="128" height="128" rx="24" fill="#3B82F6"/>
+  <path d="M64 30C45.2223 30 30 45.2223 30 64C30 82.7777 45.2223 98 64 98C82.7777 98 98 82.7777 98 64C98 45.2223 82.7777 30 64 30ZM64 90C49.6406 90 38 78.3594 38 64C38 49.6406 49.6406 38 64 38C78.3594 38 90 49.6406 90 64C90 78.3594 78.3594 90 64 90Z" fill="white"/>
+  <circle cx="64" cy="64" r="10" fill="white"/>
+  <path d="M64 45V55" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M64 73V83" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M45 64H55" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M73 64H83" stroke="white" stroke-width="4" stroke-linecap="round"/>
 </svg>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Canvas Dashboard - PriorityPing Preview</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body { font-family: sans-serif; margin: 0; display: flex; }
+        #canvas-mock { flex: 1; padding: 20px; background: #eee; min-height: 100vh; }
+        .stream-category { list-style: none; margin-bottom: 20px; background: white; padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
+        .stream-details { width: 100%; border-collapse: collapse; }
+        .stream-details td { padding: 10px; border-bottom: 1px solid #eee; }
+        .fake-link { color: #0084ff; font-weight: bold; }
+        .date { color: #666; font-size: 0.9em; }
+        .notice { background: #fffde7; padding: 10px; border: 1px solid #fff59d; margin-bottom: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div id="canvas-mock">
+        <div class="notice">
+            <strong>PriorityPing Preview Mode:</strong> This page simulates the CMU Canvas Activity Stream. 
+            The sidebar on the right is the extension UI.
+        </div>
+        
+        <h2>Recent Activity</h2>
+        <ul class="recent_activity unstyled_list">
+            <li class="stream-category stream-assignment" data-category="Assignment">
+                <div class="details_container">
+                    <table id="assignment-details" class="stream-details">
+                        <tbody>
+                            <tr>
+                                <td></td>
+                                <td>
+                                    <a href="/courses/52640/assignments/945028" class="content_summary">
+                                        <span class="fake-link">84389</span>
+                                        <strong></strong>
+                                        " Assignment Created – Presentation, Terrorism and Insurgency "
+                                    </a>
+                                </td>
+                                <td class="date">
+                                    <span data-html-tooltip-title="Apr 22 at 7:58pm" data-tooltip="top">Apr 22 at 7:58pm</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </li>
+            <li class="stream-category stream-announcement" data-category="Announcement">
+                <div class="details_container">
+                    <table class="stream-details">
+                        <tbody>
+                            <tr>
+                                <td></td>
+                                <td>
+                                    <a href="/courses/15150/announcements/12345" class="content_summary">
+                                        <span class="fake-link">15150</span>
+                                        <strong></strong>
+                                        " URGENT: Exam Location Changed "
+                                    </a>
+                                </td>
+                                <td class="date">
+                                    <span data-html-tooltip-title="Apr 23 at 10:00am">Apr 23 at 10:00am</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Mock Chrome API -->
+    <script>
+        // Set default demo mode for preview
+        if (!localStorage.getItem('pp_mock_storage')) {
+            localStorage.setItem('pp_mock_storage', JSON.stringify({ ppDemoMode: true }));
+        }
+        
+        window.chrome = {
+            storage: {
+                local: {
+                    get: (keys, cb) => {
+                        const data = JSON.parse(localStorage.getItem('pp_mock_storage') || '{}');
+                        if (typeof keys === 'string') {
+                            const res = {};
+                            res[keys] = data[keys];
+                            if (cb) cb(res);
+                            return Promise.resolve(res);
+                        }
+                        const res = {};
+                        keys.forEach(k => res[k] = data[k]);
+                        if (cb) cb(res);
+                        return Promise.resolve(res);
+                    },
+                    set: (obj, cb) => {
+                        const data = JSON.parse(localStorage.getItem('pp_mock_storage') || '{}');
+                        Object.assign(data, obj);
+                        localStorage.setItem('pp_mock_storage', JSON.stringify(data));
+                        if (cb) cb();
+                        // Trigger onChanged
+                        const event = new CustomEvent('pp_storage_changed', { detail: obj });
+                        window.dispatchEvent(event);
+                        return Promise.resolve();
+                    }
+                },
+                onChanged: {
+                    addListener: (cb) => {
+                        window.addEventListener('pp_storage_changed', (e) => {
+                            const changes = {};
+                            for (let key in e.detail) {
+                                changes[key] = { newValue: e.detail[key] };
+                            }
+                            cb(changes);
+                        });
+                    }
+                }
+            },
+            runtime: {
+                getURL: (path) => path
+            }
+        };
+    </script>
+
+    <!-- Extension Scripts -->
+    <script src="classifier.js"></script>
+    <script src="demo_data.js"></script>
+    <script src="ui.js"></script>
+    <script src="content.js"></script>
+</body>
+</html>

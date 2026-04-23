@@ -9,6 +9,22 @@ window.PriorityPingUI = {
       sidebar.id = 'pp-sidebar';
       document.body.appendChild(sidebar);
       document.body.classList.add('pp-active');
+      
+      // Global listener for interactions
+      sidebar.addEventListener('click', (e) => {
+        const toggle = e.target.closest('.pp-exp-toggle');
+        if (toggle) {
+          const bullets = toggle.parentElement.querySelector('.pp-bullets');
+          bullets.classList.toggle('open');
+          toggle.textContent = bullets.classList.contains('open') ? 'Hide reasoning ▴' : 'Why this priority? ▾';
+          return;
+        }
+
+        const dismiss = e.target.closest('.pp-dismiss');
+        if (dismiss) {
+          dismiss.closest('.pp-card').remove();
+        }
+      });
     }
 
     const isDemo = notifications.length > 0 && notifications[0].is_demo;
@@ -28,22 +44,6 @@ window.PriorityPingUI = {
         ${this.renderSection('FYI', sections.fyi)}
       </div>
     `;
-
-    // Re-attach listeners
-    sidebar.addEventListener('click', (e) => {
-      const toggle = e.target.closest('.pp-exp-toggle');
-      if (toggle) {
-        const bullets = toggle.parentElement.querySelector('.pp-bullets');
-        bullets.classList.toggle('open');
-        toggle.textContent = bullets.classList.contains('open') ? 'Hide reasoning ▴' : 'Why this priority? ▾';
-        return;
-      }
-
-      const dismiss = e.target.closest('.pp-dismiss');
-      if (dismiss) {
-        dismiss.closest('.pp-card').remove();
-      }
-    });
   },
 
   renderSection(title, items) {
