@@ -4,11 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "train": "python3 scripts/generate_data.py && python3 scripts/train_model.py"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

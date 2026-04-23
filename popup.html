@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: -apple-system, system-ui, sans-serif;
+      margin: 0;
+      color: #333;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .logo {
+      background: #3b5bdb;
+      color: white;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 18px;
+    }
+    h1 { margin: 0; font-size: 20px; }
+    .section { margin-bottom: 24px; }
+    .section-title {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        display: block;
+    }
+    .explainer {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+    .course-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    .course-code { font-weight: 700; font-size: 13px; }
+    select {
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #ced4da;
+        font-size: 12px;
+        outline: none;
+    }
+    .footer {
+        text-align: center;
+        font-size: 11px;
+        color: #adb5bd;
+        margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">PP</div>
+    <h1>PriorityPing</h1>
+  </div>
+
+  <div class="section">
+    <span class="section-title">Course Importance</span>
+    <p class="explainer">Boost or mute specific courses. Changes apply immediately.</p>
+    
+    <div id="course-list">
+      <div class="course-row" data-course="67272">
+        <span class="course-code">67272</span>
+        <select>
+          <option value="1">Normal</option>
+          <option value="2">High</option>
+          <option value="0">Mute</option>
+        </select>
+      </div>
+      <div class="course-row" data-course="15150">
+        <span class="course-code">15150</span>
+        <select>
+          <option value="1">Normal</option>
+          <option value="2">High</option>
+          <option value="0">Mute</option>
+        </select>
+      </div>
+      <div class="course-row" data-course="05318">
+        <span class="course-code">05318</span>
+        <select>
+          <option value="1">Normal</option>
+          <option value="2">High</option>
+          <option value="0">Mute</option>
+        </select>
+      </div>
+      <div class="course-row" data-course="70452">
+        <span class="course-code">70452</span>
+        <select>
+          <option value="1">Normal</option>
+          <option value="2">High</option>
+          <option value="0">Mute</option>
+        </select>
+      </div>
+      <div class="course-row" data-course="84389">
+        <span class="course-code">84389</span>
+        <select>
+          <option value="1">Normal</option>
+          <option value="2">High</option>
+          <option value="0">Mute</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    No data leaves your browser.
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

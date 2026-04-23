@@ -1,0 +1,96 @@
+{
+  "intercept": [
+    -2.5,
+    -0.5,
+    1.2,
+    2.8
+  ],
+  "coef": [
+    [
+      -1.2, 0.5, -0.8, -1.5, -0.3, -0.5, -1.0, -0.4, -0.2,
+      0.5, 0.8, -0.3, 0.4, 0.6, 0.2, 0.7
+    ],
+    [
+      -0.5, 0.2, -0.2, -0.5, 0.1, -0.2, -0.3, -0.1, 0.0,
+      0.2, 0.3, -0.1, 0.2, 0.2, 0.1, 0.2
+    ],
+    [
+      0.8, -1.2, 0.9, 1.4, 0.5, 0.6, 1.1, 0.6, 0.2,
+      -0.3, -0.5, 0.4, -0.2, -0.3, -0.1, -0.4
+    ],
+    [
+      1.5, -2.5, 1.2, 2.5, 0.8, 1.2, 1.8, 1.2, 0.6,
+      -0.6, -0.8, 0.8, -0.5, -0.8, -0.3, -0.8
+    ]
+  ],
+  "classes": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "feature_names": [
+    "has_deadline",
+    "days_until_deadline",
+    "is_graded",
+    "requires_submission",
+    "teacher_posted",
+    "estimated_time_hours",
+    "title_has_urgent_kw",
+    "has_time_reference",
+    "course_credits",
+    "notification_type_quiz_exam",
+    "notification_type_grade_posted",
+    "notification_type_announcement_urgent",
+    "notification_type_announcement_info",
+    "notification_type_discussion",
+    "notification_type_group_collab",
+    "notification_type_event_optional"
+  ],
+  "feature_means": {
+    "has_deadline": 0.45,
+    "days_until_deadline": 3.2,
+    "is_graded": 0.35,
+    "requires_submission": 0.4,
+    "teacher_posted": 0.8,
+    "estimated_time_hours": 2.1,
+    "title_has_urgent_kw": 0.15,
+    "has_time_reference": 0.2,
+    "course_credits": 10.5,
+    "notification_type_quiz_exam": 0.1,
+    "notification_type_grade_posted": 0.1,
+    "notification_type_announcement_urgent": 0.04,
+    "notification_type_announcement_info": 0.25,
+    "notification_type_discussion": 0.12,
+    "notification_type_group_collab": 0.07,
+    "notification_type_event_optional": 0.02
+  },
+  "feature_stds": {
+    "has_deadline": 0.5,
+    "days_until_deadline": 4.5,
+    "is_graded": 0.48,
+    "requires_submission": 0.49,
+    "teacher_posted": 0.4,
+    "estimated_time_hours": 1.8,
+    "title_has_urgent_kw": 0.35,
+    "has_time_reference": 0.4,
+    "course_credits": 1.4,
+    "notification_type_quiz_exam": 0.3,
+    "notification_type_grade_posted": 0.3,
+    "notification_type_announcement_urgent": 0.2,
+    "notification_type_announcement_info": 0.43,
+    "notification_type_discussion": 0.32,
+    "notification_type_group_collab": 0.25,
+    "notification_type_event_optional": 0.14
+  },
+  "notification_type_categories": [
+    "assignment_due",
+    "quiz_exam",
+    "grade_posted",
+    "announcement_urgent",
+    "announcement_info",
+    "discussion",
+    "group_collab",
+    "event_optional"
+  ]
+}

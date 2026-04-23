@@ -1,5 +1,5 @@
 {
-  "name": "PriorityPing",
-  "description": "A smart academic notification triage tool for students using logistic regression to classify urgency.",
+  "name": "PriorityPing Extension",
+  "description": "A Chrome extension for Canvas LMS that re-ranks notifications by urgency using client-side machine learning.",
   "requestFramePermissions": []
 }
