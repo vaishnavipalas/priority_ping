@@ -1,1 +1,0 @@
-Please place icon16.png, icon48.png, and icon128.png in this folder. You can use the PriorityPing logo generated earlier or any 128x128 image and resize it.

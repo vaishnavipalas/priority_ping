@@ -32,6 +32,7 @@ python3 scripts/train_model.py
 
 ## File Structure
 - `manifest.json`: Extension configuration (MV3).
+- `icons/icon.svg`: High-resolution vector brand icon.
 - `background.js`: Orchestrates script injection.
 - `content.js`: Parses Canvas DOM and handles orchestration.
 - `classifier.js`: The ML inference engine.
