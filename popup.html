@@ -1,34 +1,54 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
   <style>
-    body { width: 340px; padding: 16px; font-family: -apple-system, sans-serif; margin: 0; color: #1e293b; background: #f8fafc; }
-    h2 { font-size: 16px; font-weight: 600; margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; }
-    .section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; margin: 16px 0 8px 0; }
-    .course-row { display: flex; items-center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
-    .course-id { font-family: monospace; font-weight: 600; font-size: 13px; }
-    .toggle-group { display: flex; background: #e2e8f0; border-radius: 6px; padding: 2px; }
-    .toggle-group button { border: none; background: transparent; padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; color: #64748b; font-weight: 500; }
-    .toggle-group button.active { background: #ffffff; color: #3b82f6; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-    select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 13px; background: white; }
-    .empty-state { font-size: 12px; color: #94a3b8; text-align: center; margin: 20px 0; }
+    body { width: 380px; font-family: system-ui; padding: 0; margin: 0; background: #f8fafc; }
+    .header { padding: 16px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    .tagline { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .content { padding: 16px; }
+    .section-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; }
+    .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .course-row { margin-bottom: 8px; border: 1px solid #e2e8f0; background: #fff; padding: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; }
+    .course-id { font-family: monospace; font-weight: 700; font-size: 13px; }
+    .priority-group { display: flex; background: #f1f5f9; padding: 2px; border-radius: 6px; }
+    .priority-group button { border: none; background: transparent; padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; color: #64748b; font-weight: 600; }
+    .priority-group button.active { background: #fff; color: #3b82f6; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    select, input { border-radius: 6px; border: 1px solid #e2e8f0; padding: 6px; font-size: 13px; }
+    .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 20px; }
+    input:checked + .slider { background-color: #3b82f6; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider:before { transform: translateX(20px); }
   </style>
 </head>
 <body>
-  <h2>PriorityPing Settings</h2>
-  
-  <div class="section-label">Viewing History</div>
-  <select id="time-window">
-    <option value="today">Today Only</option>
-    <option value="3days">Last 3 Days</option>
-    <option value="7days">Last 7 Days</option>
-    <option value="all">All Notifications</option>
-  </select>
+  <div class="header">
+    <div style="font-weight: 800; font-size: 18px;">PriorityPing Settings</div>
+    <div class="tagline">PriorityPing helps you decide what to look at first — the final call is always yours.</div>
+  </div>
+  <div class="content">
+    <div class="section-label">Preferences</div>
+    <div class="row">
+      <span>Time Window</span>
+      <select id="time-window">
+        <option value="today">Today</option>
+        <option value="3days">3 Days</option>
+        <option value="7days">7 Days</option>
+        <option value="all">All</option>
+      </select>
+    </div>
+    <div class="row">
+      <span>Demo Mode</span>
+      <label class="switch">
+        <input type="checkbox" id="demo-mode">
+        <span class="slider"></span>
+      </label>
+    </div>
 
-  <div class="section-label">Course Importance</div>
-  <div id="course-settings"></div>
-
-  <script src="popup.js"></script>
+    <div class="section-label">Course Importance</div>
+    <div id="course-list"></div>
+  </div>
+  <script src="settings.js"></script>
 </body>
 </html>

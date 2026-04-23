@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PriorityPing CMU Canvas",
-  "version": "2.0.0",
-  "description": "Smart notification triage for CMU Canvas with dual-bucket explainability.",
+  "name": "PriorityPing for CMU Canvas",
+  "version": "1.0.0",
+  "description": "Smart notification triage for CMU Canvas built with Human-AI principles.",
   "permissions": [
     "storage"
   ],
@@ -10,20 +10,20 @@
     "default_popup": "popup.html",
     "default_icon": "icons/icon.svg"
   },
-  "icons": {
-    "128": "icons/icon.svg"
-  },
   "content_scripts": [
     {
       "matches": ["*://canvas.cmu.edu/*"],
-      "js": ["classifier.js", "ui.js", "content.js"],
+      "js": ["classifier.js", "demo_data.js", "ui.js", "content.js"],
       "css": ["styles.css"]
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["model/weights.json"],
+      "resources": ["weights.json"],
       "matches": ["*://canvas.cmu.edu/*"]
     }
-  ]
+  ],
+  "icons": {
+    "128": "icons/icon.svg"
+  }
 }

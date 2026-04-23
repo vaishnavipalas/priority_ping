@@ -1,73 +1,79 @@
 /**
- * Content Script for PriorityPing - CMU Canvas
+ * Content Script for PriorityPing
  */
 (function() {
   let classifier = null;
   let observer = null;
-  let weights = {};
-  let seenCourses = new Set();
+  let weights = null;
+  let currentWindowMs = 7 * 24 * 3600 * 1000;
   let lastDigest = '';
 
-  const URGENT_REGEX = /due|tonight|urgent|reminder|missing|overdue|important|final|deadline|past due|late|by midnight|due today|due tomorrow|closes/i;
+  const URGENT_REGEX = /due tonight|urgent|overdue|missing|past due|late|closes|by midnight|due today|due tomorrow|final reminder|changed|cancelled|cancellation/i;
   const TIME_REF_REGEX = /today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}\/\d{1,2}/i;
 
   async function init() {
     try {
-      const wResponse = await fetch(chrome.runtime.getURL('model/weights.json'));
-      const wData = await wResponse.json();
-      classifier = new window.CanvasClassifier(wData);
+      const resp = await fetch(chrome.runtime.getURL('weights.json'));
+      weights = await resp.json();
+      classifier = new window.CanvasClassifier(weights);
 
-      // Listen for storage changes (importance updates)
+      // Listener for storage changes (settings)
       chrome.storage.onChanged.addListener((changes) => {
-        if (changes.ppCourseWeights || changes.ppTimeWindow) {
-           processNotifications();
+        if (changes.ppCourseWeights || changes.ppTimeWindow || changes.ppDemoMode) {
+          process();
         }
       });
 
       startObserver();
-      processNotifications();
-    } catch (err) {
-      console.error('PriorityPing init failed:', err);
-    }
+      process();
+    } catch (e) { console.error("PriorityPing init failed", e); }
   }
 
   function startObserver() {
     if (observer) observer.disconnect();
-    observer = new MutationObserver(debounce(() => processNotifications(), 800));
+    observer = new MutationObserver(debounce(() => {
+      chrome.storage.local.get('ppDemoMode', (data) => {
+        if (!data.ppDemoMode) process();
+      });
+    }, 800));
     const target = document.querySelector('#application') || document.body;
     observer.observe(target, { childList: true, subtree: true });
   }
 
-  async function processNotifications() {
-    const rows = Array.from(document.querySelectorAll('li.stream-category table.stream-details tbody tr'));
-    if (rows.length === 0) return;
-
-    const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppSeenCourses']);
+  async function process() {
+    const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppSeenCourses']);
     const courseWeights = storage.ppCourseWeights || {};
-    const timeWindow = storage.ppTimeWindow || '7days';
-    const oldSeen = storage.ppSeenCourses || [];
-    seenCourses = new Set(oldSeen);
+    const winKey = storage.ppTimeWindow || '7days';
+    const isDemo = storage.ppDemoMode || false;
+    const seenCodes = new Set(storage.ppSeenCourses || []);
 
-    const parsed = rows.map(row => parseRow(row, courseWeights)).filter(p => p !== null);
-    
-    // Update seen courses
-    const currentSeen = Array.from(seenCourses);
-    if (currentSeen.length !== oldSeen.length) {
-       chrome.storage.local.set({ ppSeenCourses: currentSeen });
+    const winMap = { today: 24*3600*1000, '3days': 3*24*3600*1000, '7days': 7*24*3600*1000, all: Infinity };
+    currentWindowMs = winMap[winKey];
+
+    let items = [];
+    if (isDemo) {
+      items = window.PP_DEMO_DATA;
+    } else {
+      const rows = document.querySelectorAll('li.stream-category table.stream-details tbody tr');
+      rows.forEach(row => {
+        const parsed = parseRow(row, seenCodes);
+        if (parsed) items.push(parsed);
+      });
+      // Save newly seen courses
+      chrome.storage.local.set({ ppSeenCourses: Array.from(seenCodes) });
     }
 
-    // Filter by time window (for display only)
-    const filtered = parsed.filter(item => isWithinWindow(item.date_posted, timeWindow));
-
+    const filtered = items.filter(it => isWithinWindow(it.date_posted, currentWindowMs));
     const digest = filtered.map(f => f.id).join('|');
     if (digest === lastDigest) return;
     lastDigest = digest;
 
-    const results = filtered.map(item => {
-      const explanation = classifier.explain(item.features);
+    const results = filtered.map(it => {
+      const features = buildFeatures(it, courseWeights);
       return {
-        ...item,
-        explanation
+        ...it,
+        is_demo: isDemo,
+        explanation: classifier.explain(features)
       };
     });
 
@@ -76,14 +82,17 @@
     }
   }
 
-  function parseRow(row, courseWeights) {
+  function parseRow(row, seenCodes) {
     const titleLink = row.querySelector('a.content_summary');
     if (!titleLink) return null;
 
     const href = titleLink.getAttribute('href') || '';
-    const courseMatch = href.match(/\/courses\/(\d+)/);
-    const courseId = courseMatch ? courseMatch[1] : null;
-    if (courseId) seenCourses.add(courseId);
+    const courseId = href.match(/\/courses\/(\d+)/)?.[1] || null;
+    if (courseId) seenCodes.add(courseId);
+
+    const fullTitle = titleLink.textContent.trim();
+    const fakeLink = titleLink.querySelector('.fake-link');
+    const cleanTitle = fullTitle.replace(fakeLink?.textContent || '', '').replace(/^[:-]\s*/, '').trim();
 
     const categoryLi = row.closest('li.stream-category');
     const category = categoryLi?.dataset.category || 'Announcement';
@@ -91,59 +100,80 @@
     const dateCell = row.querySelector('td.date span[data-html-tooltip-title]');
     const datePosted = dateCell?.getAttribute('data-html-tooltip-title') || '';
 
-    const fullTitle = titleLink.textContent.trim();
-    const fakeLink = titleLink.querySelector('.fake-link');
-    const cleanTitle = fullTitle.replace(fakeLink?.textContent || '', '').replace(/^[:-]\s*/, '').trim();
-
-    const bucket = ['Assignment', 'DiscussionTopic', 'Submission'].includes(category) || cleanTitle.toLowerCase().includes('quiz') ? 'action' : 'info';
-    
-    const features = {
-      bucket,
-      course_id: courseId,
-      course_importance: courseWeights[courseId] || 2,
-      title_has_urgent_kw: URGENT_REGEX.test(cleanTitle) ? 1 : 0,
-      title_has_time_ref: TIME_REF_REGEX.test(cleanTitle) ? 1 : 0
-    };
-
-    if (bucket === 'action') {
-      let typeWeight = 3;
-      if (cleanTitle.toLowerCase().includes('missing')) typeWeight = 5;
-      else if (cleanTitle.toLowerCase().includes('quiz')) typeWeight = 5;
-      else if (category === 'Submission') typeWeight = 2;
-
-      features.notification_type = typeWeight;
-      features.requires_action = (typeWeight >= 3 && category !== 'Submission') ? 1 : 0;
-      features.is_graded = (category === 'Assignment' || category === 'Submission') ? 1 : 0;
-    } else {
-      let typeWeight = 2;
-      if (features.title_has_urgent_kw) typeWeight = 4;
-      if (category === 'Conversation' || category === 'Message') typeWeight = 1;
-
-      features.announcement_type = typeWeight;
-      features.is_course_wide = courseId ? 1 : 0;
-    }
-
     return {
       id: cleanTitle + datePosted,
       title: cleanTitle,
       course_id: courseId,
       date_posted: datePosted,
-      category,
-      features
+      category: category
     };
   }
 
-  function isWithinWindow(dateStr, windowKey) {
-    if (windowKey === 'all') return true;
-    const winDays = { today: 1, '3days': 3, '7days': 7 };
-    const maxMs = winDays[windowKey] * 24 * 3600 * 1000;
-    
+  function buildFeatures(item, courseWeights) {
+    const t = item.title.toLowerCase();
+    const cat = item.category;
+    let bucket = 'info';
+    let type = 'announcement';
+    let subtypeWeight = 2;
+
+    // Taxonomy Logic
+    if (['Assignment', 'DiscussionTopic', 'Submission'].includes(cat) || t.includes('quiz') || t.includes('exam')) {
+      bucket = 'action';
+      if (t.includes('due date change')) { type = 'due_date_change'; subtypeWeight = 4; }
+      else if (t.includes('peer review')) { type = 'peer_review'; subtypeWeight = 4; }
+      else if (cat === 'Submission') { type = 'grade_posted'; subtypeWeight = 3; }
+      else if (cat === 'DiscussionTopic') { type = 'discussion_topic'; subtypeWeight = 2; }
+      else {
+        type = 'assignment';
+        if (/final|midterm/.test(t)) subtypeWeight = 5;
+        else if (/exam|quiz/.test(t)) subtypeWeight = 4;
+        else if (/homework|lab|project/.test(t)) subtypeWeight = 3;
+        else if (t.includes('discussion')) subtypeWeight = 2;
+        else if (/participation|reading/.test(t)) subtypeWeight = 1;
+        else subtypeWeight = 2;
+      }
+    } else {
+      if (cat === 'Conversation' || cat === 'Message') { type = 'conversation'; subtypeWeight = 3; }
+      else if (t.includes('grading policy')) { type = 'policy_change'; subtypeWeight = 2; }
+      else if (t.includes('recording ready')) { type = 'recording_ready'; subtypeWeight = 1; }
+    }
+
+    const common = {
+      bucket,
+      course_importance: courseWeights[item.course_id] || 2,
+      subtype_weight: subtypeWeight,
+      title_has_urgent_kw: URGENT_REGEX.test(item.title) ? 1 : 0,
+      title_has_time_ref: TIME_REF_REGEX.test(item.title) ? 1 : 0
+    };
+
+    if (bucket === 'action') {
+      return {
+        ...common,
+        is_reminder_or_missing: /reminder:|missing:|overdue|past due/i.test(item.title) ? 1 : 0,
+        is_grade_impacting: /grade|graded|score|points|feedback/i.test(item.title) || subtypeWeight >= 3 ? 1 : 0,
+        requires_action: /submission confirmed/i.test(item.title) ? 0 : 1,
+        is_group_item: /group|team|peer|collaboration/i.test(item.title) ? 1 : 0,
+        is_instructor_posted: !(/^reminder:|^missing:/i.test(item.title)) ? 1 : 0,
+        is_mention: t.includes('mention') ? 1 : 0
+      };
+    } else {
+      return {
+        ...common,
+        is_course_wide: item.course_id ? 1 : 0,
+        is_direct_message: type === 'conversation' ? 1 : 0,
+        is_global: cat === 'GlobalAnnouncement' ? 1 : 0
+      };
+    }
+  }
+
+  function isWithinWindow(dateStr, windowMs) {
+    if (windowMs === Infinity) return true;
+    if (!dateStr) return false;
     try {
-      // Normalize Canvas date "Apr 22 at 7:58pm"
       let dStr = dateStr.replace(' at ', ' ');
       if (!dStr.includes(new Date().getFullYear())) dStr += ` ${new Date().getFullYear()}`;
       const d = new Date(dStr);
-      return (Date.now() - d.getTime()) <= maxMs;
+      return (Date.now() - d.getTime()) <= windowMs;
     } catch (e) { return true; }
   }
 

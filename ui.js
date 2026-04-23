@@ -3,58 +3,81 @@
  */
 window.PriorityPingUI = {
   render(notifications) {
-    let panel = document.getElementById('pp-dashboard');
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'pp-dashboard';
-      document.body.appendChild(panel);
+    let sidebar = document.getElementById('pp-sidebar');
+    if (!sidebar) {
+      sidebar = document.createElement('div');
+      sidebar.id = 'pp-sidebar';
+      document.body.appendChild(sidebar);
+      document.body.classList.add('pp-active');
     }
 
+    const isDemo = notifications.length > 0 && notifications[0].is_demo;
+
     const sections = {
-      action: notifications.filter(n => n.features.bucket === 'action').sort((a,b) => b.explanation.score - a.explanation.score),
-      info: notifications.filter(n => n.features.bucket === 'info').sort((a,b) => b.explanation.score - a.explanation.score)
+      action: notifications.filter(n => n.explanation.bucket === 'action').sort((a,b) => b.explanation.score - a.explanation.score),
+      fyi: notifications.filter(n => n.explanation.bucket === 'info').sort((a,b) => b.explanation.score - a.explanation.score)
     };
 
-    panel.innerHTML = `
-      <div class="pp-panel-header">
-        <div class="pp-logo">PriorityPing <span>CMU</span></div>
-        <div class="pp-controls">
-          <button id="pp-close">×</button>
-        </div>
+    sidebar.innerHTML = `
+      <div class="pp-header">
+        <h1>PriorityPing ${isDemo ? '<span class="pp-demo-badge">Demo</span>' : ''}</h1>
+        <div class="pp-tagline">PriorityPing helps you decide what to look at first — the final call is always yours.</div>
       </div>
-      <div class="pp-scroll-area">
-        ${this.renderSection('Priority Tasks', sections.action)}
-        ${this.renderSection('FYI & Updates', sections.info)}
+      <div class="pp-scroll">
+        ${this.renderSection('Needs Action', sections.action)}
+        ${this.renderSection('FYI', sections.fyi)}
       </div>
     `;
 
-    document.getElementById('pp-close').onclick = () => panel.remove();
+    // Re-attach listeners
+    sidebar.addEventListener('click', (e) => {
+      const toggle = e.target.closest('.pp-exp-toggle');
+      if (toggle) {
+        const bullets = toggle.parentElement.querySelector('.pp-bullets');
+        bullets.classList.toggle('open');
+        toggle.textContent = bullets.classList.contains('open') ? 'Hide reasoning ▴' : 'Why this priority? ▾';
+        return;
+      }
+
+      const dismiss = e.target.closest('.pp-dismiss');
+      if (dismiss) {
+        dismiss.closest('.pp-card').remove();
+      }
+    });
   },
 
   renderSection(title, items) {
     if (items.length === 0) return '';
     return `
       <div class="pp-section">
-        <h3>${title}</h3>
-        ${items.map(item => `
-          <div class="pp-card pp-priority-${item.explanation.priority_label.toLowerCase()}">
-            <div class="pp-card-main">
-              <span class="pp-tag">${item.category}</span>
-              <div class="pp-title">${item.title}</div>
-              <div class="pp-headline">${item.explanation.headline}</div>
-              <div class="pp-meta">Course: ${item.course_id || 'Global'} • ${item.date_posted}</div>
-            </div>
-            <div class="pp-explanation">
-              ${item.explanation.factors.map(f => `
-                <div class="pp-factor">
-                  <span class="pp-icon ${f.direction}"></span>
-                  ${f.label} (${f.impact})
-                </div>
-              `).join('')}
-              ${item.explanation.suppressed_by ? `<div class="pp-suppressed">Note: ${item.explanation.suppressed_by}</div>` : ''}
-            </div>
+        <div class="pp-section-label">${title}</div>
+        ${items.map(item => this.renderCard(item)).join('')}
+      </div>
+    `;
+  },
+
+  renderCard(item) {
+    const exp = item.explanation;
+    const priority = exp.priority_label.toLowerCase();
+    
+    return `
+      <div class="pp-card ${priority}">
+        <button class="pp-dismiss">🗑</button>
+        <div class="pp-badge-row">
+          <span class="pp-badge ${priority}">${exp.priority_label}</span>
+          <span class="pp-confidence">${exp.confidence}% confidence</span>
+          ${item.is_demo ? '<span class="pp-demo-badge">DEMO</span>' : ''}
+        </div>
+        <div class="pp-title">${item.title}</div>
+        <div class="pp-category">${item.category} • ${item.date_posted}</div>
+        
+        <div class="pp-exp-wrapper">
+          <span class="pp-exp-toggle">Why this priority? ▾</span>
+          <div class="pp-bullets">
+            ${exp.bullets.map(b => `<div class="pp-bullet">${b}</div>`).join('')}
+            ${exp.suppressed_reason ? `<div class="pp-suppressed">💡 ${exp.suppressed_reason}</div>` : ''}
           </div>
-        `).join('')}
+        </div>
       </div>
     `;
   }

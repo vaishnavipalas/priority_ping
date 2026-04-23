@@ -1,0 +1,50 @@
+{
+  "action_weights": {
+    "bias": -3.5,
+    "weights": {
+      "course_importance": 1.2,
+      "subtype_weight": 0.8,
+      "is_reminder_or_missing": 2.5,
+      "title_has_urgent_kw": 2.2,
+      "title_has_time_ref": 1.8,
+      "is_grade_impacting": 1.5,
+      "requires_action": 2.0,
+      "is_group_item": 0.7,
+      "is_instructor_posted": 0.5,
+      "is_mention": 1.5
+    },
+    "descriptions": {
+      "course_importance": "This is a high-priority class.",
+      "subtype_weight": "This type of task usually requires deep focus.",
+      "is_reminder_or_missing": "This is marked as a reminder or missing task.",
+      "title_has_urgent_kw": "The title uses urgent language (e.g. 'due tonight').",
+      "title_has_time_ref": "The title specifies a specific time or day.",
+      "is_grade_impacting": "This can directly affect your grade.",
+      "requires_action": "Action is required from you.",
+      "is_group_item": "This involves coordination with your team or peers.",
+      "is_instructor_posted": "This was posted directly by your instructor.",
+      "is_mention": "You were specifically mentioned or tagged."
+    }
+  },
+  "info_weights": {
+    "bias": -4.0,
+    "weights": {
+      "course_importance": 1.0,
+      "subtype_weight": 0.6,
+      "title_has_urgent_kw": 2.8,
+      "title_has_time_ref": 1.5,
+      "is_course_wide": 1.2,
+      "is_direct_message": 3.5,
+      "is_global": -0.5
+    },
+    "descriptions": {
+      "course_importance": "This comes from a class you've prioritized.",
+      "subtype_weight": "The announcement type suggests it contains key info.",
+      "title_has_urgent_kw": "The instructor used critical urgency language.",
+      "title_has_time_ref": "There is an immediate time reference mentioned.",
+      "is_course_wide": "This is a formal course-wide update.",
+      "is_direct_message": "An instructor is reaching out to you directly.",
+      "is_global": "This is a general institution-wide broadcast."
+    }
+  }
+}
