@@ -19,9 +19,9 @@
       const winMap = { today: 24*3600*1000, '3days': 3*24*3600*1000, '7days': 7*24*3600*1000, all: Infinity };
       currentWindowMs = winMap[storage.ppTimeWindow || '7days'];
 
-      // If on an assignment page, scrape the due date
-      if (document.querySelector('#assignment_show')) {
-        scrapeAssignmentDeadline();
+      // If on an assignment or discussion page, scrape the due date
+      if (document.querySelector('#assignment_show, #discussion_topic_show')) {
+        scrapeDeadline();
       }
 
       startObserver();
@@ -32,16 +32,15 @@
   }
 
   /**
-   * Scrapes the precise due date from an assignment page and caches it.
+   * Scrapes the precise due date from an assignment or discussion page and caches it.
    */
-  async function scrapeAssignmentDeadline() {
-    const dateEl = document.querySelector('.student-assignment-overview .date_text');
-    const titleEl = document.querySelector('.assignment-title h1') || document.querySelector('.assignment-title');
-    const urlParts = window.location.pathname.match(/\/courses\/(\d+)\/assignments\/(\d+)/);
+  async function scrapeDeadline() {
+    const dateEl = document.querySelector('.student-assignment-overview .date_text, .discussion-topic-due-date');
+    const titleEl = document.querySelector('.assignment-title h1, .discussion-title, .assignment-title');
+    const urlParts = window.location.pathname.match(/\/courses\/(\d+)\//);
     
     if (dateEl && titleEl && urlParts) {
       const courseId = urlParts[1];
-      const assignmentId = urlParts[2];
       const dueDateRaw = dateEl.textContent.trim();
       const title = titleEl.textContent.trim();
       
@@ -49,17 +48,14 @@
         const storage = await chrome.storage.local.get('ppDeadlineCache');
         const cache = storage.ppDeadlineCache || {};
         
-        // Cache by a key combining course and title for matching on dashboard
-        // We also store courseId as a fallback
         const cacheKey = `${courseId}_${title}`;
         cache[cacheKey] = {
            dueDate: dueDateRaw,
-           assignmentId: assignmentId,
            scrapedAt: Date.now()
         };
         
         await chrome.storage.local.set({ ppDeadlineCache: cache });
-        console.log('PriorityPing cached precise deadline:', title, dueDateRaw);
+        console.log('PriorityPing cached real deadline:', title, dueDateRaw);
       }
     }
   }
@@ -67,9 +63,9 @@
   function startObserver() {
     if (observer) observer.disconnect();
     observer = new MutationObserver(debounce(() => {
-        // If the URL changed but script didn't re-run, check for assignment page
-        if (document.querySelector('#assignment_show')) {
-            scrapeAssignmentDeadline();
+        // If the URL changed but script didn't re-run, check for assignment/discussion page
+        if (document.querySelector('#assignment_show, #discussion_topic_show')) {
+            scrapeDeadline();
         }
         processNotifications();
     }, 800));
@@ -173,35 +169,39 @@
 
   function isWithinWindow(dateText, windowMs) {
     if (windowMs === Infinity) return true;
+    if (!dateText) return false;
     try {
-      // Handle "Month Day at Time" format from Screenshot 1
-      const d = new Date(dateText.replace(' at ', ' '));
+      // Normalize Canvas date (e.g., "Apr 22 at 7:58pm")
+      let cleanDate = dateText.replace(' at ', ' ');
+      // Append current year if missing
+      if (!cleanDate.includes(new Date().getFullYear().toString())) {
+          cleanDate += ` ${new Date().getFullYear()}`;
+      }
+      const d = new Date(cleanDate);
       if (isNaN(d.getTime())) return true;
       return (Date.now() - d.getTime()) <= windowMs;
     } catch (e) { return true; }
   }
 
   /**
-   * Background pre-fetcher for assignments.
-   * Finds assignment links on the dashboard and fetches their due dates automatically.
+   * Background pre-fetcher for assignments and discussions.
    */
   async function preFetchDeadlines(notifications) {
     const storage = await chrome.storage.local.get('ppDeadlineCache');
     const cache = storage.ppDeadlineCache || {};
     let cacheUpdated = false;
 
-    // Filter for assignments that aren't in the cache yet
     const pending = notifications.filter(item => {
-      if (item.notification_type !== 'assignment_due') return false;
+      const isTriagable = item.notification_type === 'assignment_due' || item.notification_type === 'discussion';
+      if (!isTriagable) return false;
       
       const link = item.raw_el?.querySelector('a.content_summary')?.getAttribute('href');
       if (!link) return false;
       
-      const parts = link.match(/\/courses\/(\d+)\/assignments\/(\d+)/);
+      const parts = link.match(/\/courses\/(\d+)\//);
       if (!parts) return false;
       
-      const courseId = parts[1];
-      const cacheKey = `${courseId}_${item.title}`;
+      const cacheKey = `${parts[1]}_${item.title}`;
       return !cache[cacheKey];
     });
 
@@ -209,13 +209,10 @@
 
     console.log(`PriorityPing: Background fetching ${pending.length} deadlines...`);
 
-    // Fetch up to 3 at a time to avoid rate limits
-    for (const item of pending.slice(0, 5)) {
+    for (const item of pending.slice(0, 3)) {
       const link = item.raw_el.querySelector('a.content_summary').getAttribute('href');
-      const parts = link.match(/\/courses\/(\d+)\/assignments\/(\d+)/);
-      const courseId = parts[1];
-      const assignmentId = parts[2];
-      const cacheKey = `${courseId}_${item.title}`;
+      const parts = link.match(/\/courses\/(\d+)\//);
+      const cacheKey = `${parts[1]}_${item.title}`;
 
       try {
         const response = await fetch(link);
@@ -223,27 +220,23 @@
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         
-        // Exact selector from Screenshot 2
-        const dateEl = doc.querySelector('.student-assignment-overview .date_text');
+        const dateEl = doc.querySelector('.student-assignment-overview .date_text, .discussion-topic-due-date');
         const dueDateRaw = dateEl?.textContent.trim();
 
         if (dueDateRaw && dueDateRaw !== "No Due Date") {
           cache[cacheKey] = {
             dueDate: dueDateRaw,
-            assignmentId: assignmentId,
             scrapedAt: Date.now()
           };
           cacheUpdated = true;
-          console.log(`PriorityPing: Auto-fetched deadline for ${item.title}: ${dueDateRaw}`);
+          console.log(`PriorityPing: Auto-fetched real deadline for ${item.title}: ${dueDateRaw}`);
         }
-      } catch (err) {
-        console.warn(`PriorityPing: Failed to pre-fetch deadline for ${item.title}`, err);
-      }
+      } catch (err) { }
     }
 
     if (cacheUpdated) {
       await chrome.storage.local.set({ ppDeadlineCache: cache });
-      lastDigest = ''; // Clear digest to force re-classification with new data
+      lastDigest = ''; // Force re-render
       processNotifications();
     }
   }
