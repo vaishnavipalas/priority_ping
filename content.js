@@ -35,28 +35,50 @@
    * Scrapes the precise due date from an assignment or discussion page and caches it.
    */
   async function scrapeDeadline() {
-    const dateEl = document.querySelector('.student-assignment-overview .date_text, .discussion-topic-due-date');
+    let dueDateRaw = null;
+    
+    // Assignment Page Structure (Screenshots 2 & 3)
+    const assignmentDateContainer = document.querySelector('.student-assignment-overview .date_text');
+    if (assignmentDateContainer) {
+        if (assignmentDateContainer.textContent.includes('No Due Date')) {
+            dueDateRaw = "None";
+        } else {
+            const datePart = assignmentDateContainer.querySelector('.display_date')?.textContent.trim();
+            const timePart = assignmentDateContainer.querySelector('.display_time')?.textContent.trim();
+            if (datePart && timePart) {
+                dueDateRaw = `${datePart} ${timePart}`;
+            } else {
+                dueDateRaw = assignmentDateContainer.textContent.trim();
+            }
+        }
+    }
+    
+    // Discussion Page Structure (Screenshot 4)
+    if (!dueDateRaw || dueDateRaw === "None") {
+        const discussionDateEl = document.querySelector('.discussions-show-due-dates');
+        if (discussionDateEl) {
+            dueDateRaw = discussionDateEl.textContent.trim().replace('Due ', '');
+        }
+    }
+
     const titleEl = document.querySelector('.assignment-title h1, .discussion-title, .assignment-title');
     const urlParts = window.location.pathname.match(/\/courses\/(\d+)\//);
     
-    if (dateEl && titleEl && urlParts) {
+    if (dueDateRaw && titleEl && urlParts) {
       const courseId = urlParts[1];
-      const dueDateRaw = dateEl.textContent.trim();
       const title = titleEl.textContent.trim();
       
-      if (dueDateRaw && dueDateRaw !== "No Due Date") {
-        const storage = await chrome.storage.local.get('ppDeadlineCache');
-        const cache = storage.ppDeadlineCache || {};
-        
-        const cacheKey = `${courseId}_${title}`;
-        cache[cacheKey] = {
-           dueDate: dueDateRaw,
-           scrapedAt: Date.now()
-        };
-        
-        await chrome.storage.local.set({ ppDeadlineCache: cache });
-        console.log('PriorityPing cached real deadline:', title, dueDateRaw);
-      }
+      const storage = await chrome.storage.local.get('ppDeadlineCache');
+      const cache = storage.ppDeadlineCache || {};
+      
+      const cacheKey = `${courseId}_${title}`;
+      cache[cacheKey] = {
+         dueDate: dueDateRaw,
+         scrapedAt: Date.now()
+      };
+      
+      await chrome.storage.local.set({ ppDeadlineCache: cache });
+      console.log('PriorityPing cached real deadline:', title, dueDateRaw);
     }
   }
 
@@ -220,10 +242,27 @@
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         
-        const dateEl = doc.querySelector('.student-assignment-overview .date_text, .discussion-topic-due-date');
-        const dueDateRaw = dateEl?.textContent.trim();
+        let dueDateRaw = null;
+        
+        // Peek Assignment
+        const assignmentDateContainer = doc.querySelector('.student-assignment-overview .date_text');
+        if (assignmentDateContainer) {
+            if (assignmentDateContainer.textContent.includes('No Due Date')) {
+                dueDateRaw = "None";
+            } else {
+                const datePart = assignmentDateContainer.querySelector('.display_date')?.textContent.trim();
+                const timePart = assignmentDateContainer.querySelector('.display_time')?.textContent.trim();
+                dueDateRaw = (datePart && timePart) ? `${datePart} ${timePart}` : assignmentDateContainer.textContent.trim();
+            }
+        }
+        
+        // Peek Discussion
+        if (!dueDateRaw) {
+            const discEl = doc.querySelector('.discussions-show-due-dates');
+            if (discEl) dueDateRaw = discEl.textContent.trim().replace('Due ', '');
+        }
 
-        if (dueDateRaw && dueDateRaw !== "No Due Date") {
+        if (dueDateRaw) {
           cache[cacheKey] = {
             dueDate: dueDateRaw,
             scrapedAt: Date.now()
