@@ -34,7 +34,15 @@
       // Listener for storage changes (settings)
       chrome.storage.onChanged.addListener((changes) => {
         console.log("PriorityPing: Storage changed, re-processing...");
+        lastDigest = '';
         process();
+      });
+
+      chrome.runtime.onMessage.addListener((msg) => {
+        if (msg.type === 'pp-refresh') {
+          lastDigest = '';
+          process();
+        }
       });
 
       startObserver();
@@ -59,14 +67,15 @@
 
   async function process() {
     console.log("PriorityPing: Processing notifications...");
-    const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppSeenCourses', 'ppCourseNames']);
+    const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppSeenCourses', 'ppCourseNames', 'ppCustomDays']);
     const courseWeights = storage.ppCourseWeights || {};
     const courseNames = storage.ppCourseNames || {};
     const winKey = storage.ppTimeWindow || '7days';
     const isDemo = storage.ppDemoMode || false;
     const seenCodes = new Set(storage.ppSeenCourses || []);
 
-    const winMap = { today: 24*3600*1000, '3days': 3*24*3600*1000, '7days': 7*24*3600*1000, all: Infinity };
+    const customMs = (storage.ppCustomDays || 5) * 24 * 3600 * 1000;
+    const winMap = { today: 24*3600*1000, '3days': 3*24*3600*1000, '7days': 7*24*3600*1000, all: Infinity, custom: customMs };
     currentWindowMs = winMap[winKey];
 
     let items = [];
@@ -78,11 +87,17 @@
         const parsed = parseRow(row, seenCodes);
         if (parsed) items.push(parsed);
       });
-      // Save newly seen courses
+
+      const streamTitles = new Set(items.map(i => i.title.toLowerCase()));
+      parseTodoSidebar(seenCodes, streamTitles).forEach(i => items.push(i));
+
       chrome.storage.local.set({ ppSeenCourses: Array.from(seenCodes) });
     }
 
-    const filtered = items.filter(it => isWithinWindow(it.date_posted, currentWindowMs));
+    const filtered = items.filter(it => {
+      if (it.source === 'todo') return isWithinDueWindow(it.due_date, currentWindowMs);
+      return isWithinWindow(it.date_posted, currentWindowMs);
+    });
     const digest = filtered.map(f => f.id).join('|');
     if (digest === lastDigest) return;
     lastDigest = digest;
@@ -129,7 +144,104 @@
     };
   }
 
+  function parseTodoSidebar(seenCodes, streamTitles) {
+    const results = [];
+    // Canvas's planner To Do list — confirmed selector from DevTools
+    const candidates = document.querySelectorAll('#planner-todosidebar-item-list li');
+    candidates.forEach(li => {
+      // Only assignment items — must link to /assignments/
+      const link = li.querySelector('a[href*="/assignments/"]');
+      if (!link) return;
+
+      const title = link.textContent.trim();
+      if (!title) return;
+
+      // Skip if already in Recent Activity stream (deduplicate)
+      if (streamTitles.has(title.toLowerCase())) return;
+
+      const href = link.getAttribute('href') || '';
+      const courseId = href.match(/\/courses\/(\d+)/)?.[1] || null;
+      if (courseId) seenCodes.add(courseId);
+
+      // Canvas renders "X points  |  Apr 28 at 11:59pm" as text in the item
+      const fullText = li.textContent;
+      const ptsMatch = fullText.match(/(\d+)\s*points?/i);
+      const points = ptsMatch ? parseInt(ptsMatch[1]) : 0;
+
+      // Try <time> element first (Canvas planner uses these), then fall back to regex
+      const timeEl = li.querySelector('time[datetime]');
+      let dueDate = '';
+      if (timeEl) {
+        dueDate = timeEl.textContent.trim();
+      } else {
+        const dateMatch = fullText.match(/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+\s*at\s*\d+(?::\d+)?\s*(?:am|pm)/i);
+        dueDate = dateMatch ? dateMatch[0].trim() : '';
+      }
+
+      results.push({
+        id: 'todo-' + title + dueDate,
+        title,
+        course_id: courseId,
+        date_posted: dueDate,
+        due_date: dueDate,
+        points,
+        category: 'Assignment',
+        source: 'todo'
+      });
+    });
+    return results;
+  }
+
+  function isWithinDueWindow(dateStr, windowMs) {
+    if (windowMs === Infinity) return true;
+    if (!dateStr) return true;
+    try {
+      let dStr = dateStr.replace(/^due[:\s]*/i, '').replace(' at ', ' ');
+      dStr = dStr.replace(/(\d+)(?::(\d+))?(am|pm)/i, (_, h, m, p) => `${h}:${m || '00'} ${p.toUpperCase()}`);
+      if (!dStr.includes(String(new Date().getFullYear()))) dStr += ` ${new Date().getFullYear()}`;
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return true;
+      const msUntilDue = d.getTime() - Date.now();
+      // Show if due in the future within the window, or overdue within the window
+      return msUntilDue <= windowMs && msUntilDue > -24 * 3600 * 1000;
+    } catch (e) { return true; }
+  }
+
   function buildFeatures(item, courseWeights) {
+    // Todo sidebar items get urgency from due date proximity
+    if (item.source === 'todo') {
+      let msUntilDue = Infinity;
+      if (item.due_date) {
+        try {
+          let dStr = item.due_date.replace(' at ', ' ')
+            .replace(/(\d+)(?::(\d+))?(am|pm)/i, (_, h, m, p) => `${h}:${m || '00'} ${p.toUpperCase()}`);
+          if (!dStr.includes(String(new Date().getFullYear()))) dStr += ` ${new Date().getFullYear()}`;
+          const d = new Date(dStr);
+          if (!isNaN(d.getTime())) msUntilDue = d.getTime() - Date.now();
+        } catch(e) {}
+      }
+      const dueToday = msUntilDue <= 24 * 3600 * 1000;
+      const daysUntilDue = msUntilDue / (24 * 3600 * 1000);
+      const pts = item.points || 0;
+      let subtypeWeight = pts >= 50 ? 5 : pts >= 20 ? 4 : pts >= 5 ? 3 : 2;
+      // Due within 2 days = urgent, 3-5 days = moderate, 5+ days = lower
+      if (daysUntilDue > 7) subtypeWeight = Math.max(1, subtypeWeight - 2);
+      else if (daysUntilDue > 2) subtypeWeight = Math.max(1, subtypeWeight - 1);
+      return {
+        bucket: 'action',
+        course_importance: courseWeights[item.course_id] || 2,
+        subtype_weight: subtypeWeight,
+        title_has_urgent_kw: daysUntilDue <= 2 ? 1 : 0,
+        title_has_time_ref: 1,
+        is_reminder_or_missing: msUntilDue < 0 ? 1 : 0,
+        is_grade_impacting: pts > 0 ? 1 : 0,
+        requires_action: 1,
+        is_group_item: /group|team|peer/i.test(item.title) ? 1 : 0,
+        is_instructor_posted: 1,
+        is_mention: 0
+      };
+    }
+
     const t = item.title.toLowerCase();
     const cat = item.category;
     let bucket = 'info';

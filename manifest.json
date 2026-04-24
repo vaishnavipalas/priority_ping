@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "Smart notification triage for CMU Canvas built with Human-AI principles.",
   "permissions": [
-    "storage"
+    "storage",
+    "tabs"
   ],
   "action": {
     "default_popup": "popup.html",

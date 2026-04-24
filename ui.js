@@ -70,7 +70,7 @@ window.PriorityPingUI = {
           ${item.is_demo ? '<span class="pp-demo-badge">DEMO</span>' : ''}
         </div>
         <div class="pp-title">${item.title}</div>
-        <div class="pp-category">${item.category} • ${item.date_posted}</div>
+        <div class="pp-category">${item.category} • ${item.source === 'todo' ? 'Due ' + item.due_date : item.date_posted}</div>
         
         <div class="pp-exp-wrapper">
           <span class="pp-exp-toggle">Why this priority? ▾</span>

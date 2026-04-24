@@ -6,13 +6,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const demoToggle = document.getElementById('demo-mode');
   const timeWindow = document.getElementById('time-window');
 
-  const storage = await chrome.storage.local.get(['ppSeenCourses', 'ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppCourseNames']);
+  const customDaysRow = document.getElementById('custom-days-row');
+  const customDaysInput = document.getElementById('custom-days');
+
+  const storage = await chrome.storage.local.get(['ppSeenCourses', 'ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppCourseNames', 'ppCustomDays']);
   const seen = storage.ppSeenCourses || [];
   const weights = storage.ppCourseWeights || {};
   const courseNames = storage.ppCourseNames || {};
 
   demoToggle.checked = storage.ppDemoMode || false;
   timeWindow.value = storage.ppTimeWindow || '7days';
+  customDaysInput.value = storage.ppCustomDays || 5;
+  customDaysRow.style.display = timeWindow.value === 'custom' ? 'flex' : 'none';
 
   if (seen.length === 0) {
     courseList.innerHTML = '<div class="empty">No courses detected yet. Visit Canvas to populate this list.</div>';
@@ -49,6 +54,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  demoToggle.onchange = () => chrome.storage.local.set({ ppDemoMode: demoToggle.checked });
-  timeWindow.onchange = () => chrome.storage.local.set({ ppTimeWindow: timeWindow.value });
+demoToggle.onchange = () => chrome.storage.local.set({ ppDemoMode: demoToggle.checked });
+  timeWindow.onchange = () => {
+    chrome.storage.local.set({ ppTimeWindow: timeWindow.value });
+    customDaysRow.style.display = timeWindow.value === 'custom' ? 'flex' : 'none';
+  };
+  customDaysInput.onchange = () => {
+    const val = Math.max(1, Math.min(365, parseInt(customDaysInput.value) || 5));
+    customDaysInput.value = val;
+    chrome.storage.local.set({ ppCustomDays: val });
+  };
 });

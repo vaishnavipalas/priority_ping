@@ -14,6 +14,9 @@
     .priority-group button { border: none; background: transparent; padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; color: #64748b; font-weight: 600; }
     .priority-group button.active { background: #fff; color: #3b82f6; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
     select, input { border-radius: 6px; border: 1px solid #e2e8f0; padding: 6px; font-size: 13px; }
+    #custom-days-row { display: none; }
+    #custom-days { width: 50px; text-align: center; }
+    #custom-days-row span { color: #64748b; font-size: 13px; }
     .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 20px; }
@@ -36,7 +39,15 @@
         <option value="3days">3 Days</option>
         <option value="7days">7 Days</option>
         <option value="all">All</option>
+        <option value="custom">Custom</option>
       </select>
+    </div>
+    <div class="row" id="custom-days-row">
+      <span>Custom days</span>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input type="number" id="custom-days" min="1" max="365" value="5">
+        <span>days</span>
+      </div>
     </div>
     <div class="row">
       <span>Demo Mode</span>
