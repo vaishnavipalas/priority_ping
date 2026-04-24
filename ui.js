@@ -65,6 +65,7 @@ window.PriorityPingUI = {
         <button class="pp-dismiss">🗑</button>
         <div class="pp-badge-row">
           <span class="pp-badge ${priority}">${exp.priority_label}</span>
+          ${item.course_label ? `<span class="pp-course-label">${item.course_label}</span>` : ''}
           <span class="pp-confidence">${exp.confidence}% confidence</span>
           ${item.is_demo ? '<span class="pp-demo-badge">DEMO</span>' : ''}
         </div>

@@ -5,9 +5,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const container = document.getElementById('course-settings');
   const winSelect = document.getElementById('time-window');
 
-  const storage = await chrome.storage.local.get(['ppSeenCourses', 'ppCourseWeights', 'ppTimeWindow']);
+  const storage = await chrome.storage.local.get(['ppSeenCourses', 'ppCourseWeights', 'ppTimeWindow', 'ppCourseNames']);
   const seen = storage.ppSeenCourses || [];
   const weights = storage.ppCourseWeights || {};
+  const courseNames = storage.ppCourseNames || {};
   const currentTimeWindow = storage.ppTimeWindow || '7days';
 
   winSelect.value = currentTimeWindow;
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const row = document.createElement('div');
       row.className = 'course-row';
       row.innerHTML = `
-        <span class="course-id">${courseId}</span>
+        <span class="course-id">${courseNames[courseId] || courseId}</span>
         <div class="toggle-group" data-id="${courseId}">
           <button data-val="1" ${currentWeight === 1 ? 'class="active"' : ''}>Low</button>
           <button data-val="2" ${currentWeight === 2 ? 'class="active"' : ''}>Med</button>

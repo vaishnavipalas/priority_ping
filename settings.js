@@ -6,9 +6,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const demoToggle = document.getElementById('demo-mode');
   const timeWindow = document.getElementById('time-window');
 
-  const storage = await chrome.storage.local.get(['ppSeenCourses', 'ppCourseWeights', 'ppTimeWindow', 'ppDemoMode']);
+  const storage = await chrome.storage.local.get(['ppSeenCourses', 'ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppCourseNames']);
   const seen = storage.ppSeenCourses || [];
   const weights = storage.ppCourseWeights || {};
+  const courseNames = storage.ppCourseNames || {};
 
   demoToggle.checked = storage.ppDemoMode || false;
   timeWindow.value = storage.ppTimeWindow || '7days';
@@ -21,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const row = document.createElement('div');
       row.className = 'course-row';
       row.innerHTML = `
-        <span class="course-id">${cid}</span>
+        <span class="course-id">${courseNames[cid] || cid}</span>
         <div class="priority-group" data-id="${cid}">
           <button data-val="1" ${w === 1 ? 'class="active"' : ''}>Low</button>
           <button data-val="2" ${w === 2 ? 'class="active"' : ''}>Med</button>

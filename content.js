@@ -11,6 +11,17 @@
   const URGENT_REGEX = /due tonight|urgent|overdue|missing|past due|late|closes|by midnight|due today|due tomorrow|final reminder|changed|cancelled|cancellation/i;
   const TIME_REF_REGEX = /today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}\/\d{1,2}/i;
 
+  async function fetchCourseNames() {
+    try {
+      const resp = await fetch('/api/v1/courses?per_page=100&enrollment_type=student');
+      const courses = await resp.json();
+      if (!Array.isArray(courses)) return;
+      const names = {};
+      courses.forEach(c => { names[String(c.id)] = c.course_code || c.name; });
+      await chrome.storage.local.set({ ppCourseNames: names });
+    } catch(e) { console.warn("PriorityPing: Could not fetch course names", e); }
+  }
+
   async function init() {
     console.log("PriorityPing: Initializing...");
     try {
@@ -18,6 +29,7 @@
       weights = await resp.json();
       classifier = new window.CanvasClassifier(weights);
       console.log("PriorityPing: Classifier loaded.");
+      fetchCourseNames();
 
       // Listener for storage changes (settings)
       chrome.storage.onChanged.addListener((changes) => {
@@ -47,8 +59,9 @@
 
   async function process() {
     console.log("PriorityPing: Processing notifications...");
-    const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppSeenCourses']);
+    const storage = await chrome.storage.local.get(['ppCourseWeights', 'ppTimeWindow', 'ppDemoMode', 'ppSeenCourses', 'ppCourseNames']);
     const courseWeights = storage.ppCourseWeights || {};
+    const courseNames = storage.ppCourseNames || {};
     const winKey = storage.ppTimeWindow || '7days';
     const isDemo = storage.ppDemoMode || false;
     const seenCodes = new Set(storage.ppSeenCourses || []);
@@ -78,6 +91,7 @@
       const features = buildFeatures(it, courseWeights);
       return {
         ...it,
+        course_label: courseNames[it.course_id] || it.course_id || '',
         is_demo: isDemo,
         explanation: classifier.explain(features)
       };
@@ -177,10 +191,15 @@
     if (!dateStr) return false;
     try {
       let dStr = dateStr.replace(' at ', ' ');
-      if (!dStr.includes(new Date().getFullYear())) dStr += ` ${new Date().getFullYear()}`;
+      // Normalize "8am" → "8:00 AM" and "10:07am" → "10:07 AM"
+      dStr = dStr.replace(/(\d+)(?::(\d+))?(am|pm)/i, (_, h, m, period) =>
+        `${h}:${m || '00'} ${period.toUpperCase()}`
+      );
+      if (!dStr.includes(String(new Date().getFullYear()))) dStr += ` ${new Date().getFullYear()}`;
       const d = new Date(dStr);
+      if (isNaN(d.getTime())) return false;
       return (Date.now() - d.getTime()) <= windowMs;
-    } catch (e) { return true; }
+    } catch (e) { return false; }
   }
 
   function debounce(func, wait) {

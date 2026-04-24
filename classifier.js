@@ -24,11 +24,17 @@ class CanvasClassifier {
     }
 
     const score = this.sigmoid(z);
-    const confidence = Math.round(score * 100);
-    
+
     let label = "Low";
     if (score >= 0.7) label = "Urgent";
     else if (score >= 0.4) label = "Moderate";
+
+    // Confidence = certainty about the assigned label, scaled to 40–100%
+    let rawConfidence;
+    if (label === "Urgent") rawConfidence = (score - 0.7) / 0.3;
+    else if (label === "Low") rawConfidence = (0.4 - score) / 0.4;
+    else rawConfidence = 1 - Math.abs(score - 0.55) / 0.15;
+    const confidence = Math.round(40 + rawConfidence * 60);
 
     return { score, confidence, label };
   }
