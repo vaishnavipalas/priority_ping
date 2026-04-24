@@ -113,7 +113,7 @@
     });
 
     if (window.PriorityPingUI) {
-      window.PriorityPingUI.render(results);
+      window.PriorityPingUI.render(results, winKey);
     }
   }
 

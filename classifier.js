@@ -72,18 +72,21 @@ class CanvasClassifier {
       else suppressed_reason = "This appears to be a routine system notification.";
     }
 
-    const bullets = contributions
-      .filter(c => c.contrib > 0.2) // Only show positive contributors for "Why"
-      .slice(0, 6)
-      .map(c => c.label);
+    const topFactors = contributions
+      .filter(c => Math.abs(c.contrib) > 0.15)
+      .slice(0, 5);
+    const maxContrib = topFactors.length > 0 ? topFactors[0].contrib : 1;
+    const factors = topFactors.map(c => ({
+      label: c.label,
+      direction: c.contrib >= maxContrib * 0.6 ? 'increased' : 'decreased'
+    }));
 
     return {
       score: pred.score,
       confidence: pred.confidence,
       priority_label: pred.label,
       bucket: features.bucket,
-      headline: features.title,
-      bullets: bullets.length > 0 ? bullets : ["Routine update detected."],
+      factors: factors.length > 0 ? factors : [{ label: 'Routine update', direction: 'decreased' }],
       suppressed_reason: suppressed_reason
     };
   }
